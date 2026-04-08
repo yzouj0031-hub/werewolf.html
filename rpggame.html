@@ -1,0 +1,4061 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>故事引擎 · Tavern</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=Ma+Shan+Zheng&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+/* ── 变量 ── */
+:root {
+  --ink:       #1a1410;
+  --ink2:      #2d2520;
+  --paper:     #f5efe0;
+  --paper2:    #ede5cc;
+  --paper3:    #e0d5b8;
+  --gold:      #8b6914;
+  --gold-dim:  rgba(139,105,20,0.45);
+  --gold-glow: rgba(139,105,20,0.12);
+  --red-seal:  #8b1a1a;
+  --faded:     #7a6e5a;
+  --faded2:    #a89880;
+  --border:    rgba(139,105,20,0.25);
+  --shadow:    rgba(26,20,16,0.15);
+  --serif:     'Noto Serif SC', serif;
+  --brush:     'Ma Shan Zheng', cursive;
+  --mono:      'Share Tech Mono', monospace;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; overflow: hidden; }
+
+body {
+  font-family: var(--serif);
+  background: var(--ink);
+  color: var(--ink);
+  position: relative;
+}
+
+/* 纸张纹理背景 */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background:
+    radial-gradient(ellipse at 20% 50%, rgba(139,105,20,0.04) 0%, transparent 60%),
+    radial-gradient(ellipse at 80% 20%, rgba(139,105,20,0.03) 0%, transparent 50%);
+  pointer-events: none; z-index: 0;
+}
+
+/* ══════════════════════════════════════
+   SCREENS
+══════════════════════════════════════ */
+.screen {
+  position: fixed; inset: 0;
+  display: none;
+  z-index: 10;
+}
+.screen.active { display: flex; }
+
+/* ══════════════════════════════════════
+   SCREEN 1: 起始页
+══════════════════════════════════════ */
+#screen-home {
+  background: var(--ink2);
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.home-paper {
+  background: var(--paper);
+  width: 90%; max-width: 420px;
+  border-radius: 2px;
+  padding: 40px 32px 36px;
+  position: relative;
+  box-shadow:
+    0 2px 0 var(--paper3),
+    0 4px 0 var(--paper2),
+    0 8px 32px rgba(0,0,0,0.45),
+    inset 0 0 60px rgba(139,105,20,0.06);
+  margin: 24px 0;
+}
+
+/* 纸张边缘装饰线 */
+.home-paper::before {
+  content: '';
+  position: absolute; inset: 8px;
+  border: 1px solid var(--border);
+  border-radius: 1px;
+  pointer-events: none;
+}
+
+.logo-area { text-align: center; margin-bottom: 28px; }
+
+.logo-title {
+  font-family: var(--brush);
+  font-size: 2.6rem;
+  color: var(--ink);
+  letter-spacing: 0.1em;
+  line-height: 1;
+  text-shadow: 1px 1px 0 rgba(139,105,20,0.2);
+}
+
+.logo-sub {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  color: var(--faded);
+  letter-spacing: 0.35em;
+  margin-top: 8px;
+  text-transform: uppercase;
+}
+
+.logo-divider {
+  display: flex; align-items: center; gap: 10px;
+  margin: 20px 0;
+}
+.logo-divider::before, .logo-divider::after {
+  content: '';
+  flex: 1; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--border), transparent);
+}
+.logo-divider-icon { color: var(--gold); font-size: 0.9rem; }
+
+/* API 配置区 */
+.config-section { margin-bottom: 24px; }
+
+.cfg-label {
+  font-family: var(--mono);
+  font-size: 0.58rem;
+  color: var(--faded);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  margin-bottom: 5px;
+  margin-top: 12px;
+}
+
+.cfg-row { display: flex; gap: 7px; align-items: stretch; }
+
+.cfg-input {
+  flex: 1;
+  background: rgba(255,255,255,0.6);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 9px 12px;
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  -webkit-appearance: none;
+  width: 100%;
+}
+.cfg-input:focus {
+  border-color: var(--gold-dim);
+  box-shadow: 0 0 0 2px var(--gold-glow);
+}
+.cfg-input::placeholder { color: var(--faded2); }
+
+.cfg-select {
+  width: 100%;
+  background: rgba(255,255,255,0.6);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 9px 12px;
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  outline: none;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+  transition: border-color 0.2s;
+}
+.cfg-select:focus { border-color: var(--gold-dim); }
+.cfg-select option { background: var(--paper); }
+
+.btn-fetch-sm {
+  padding: 0 12px;
+  background: transparent;
+  border: 1px solid var(--gold-dim);
+  border-radius: 3px;
+  color: var(--gold);
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s;
+  letter-spacing: 0.05em;
+  flex-shrink: 0;
+}
+.btn-fetch-sm:hover { background: var(--gold-glow); }
+.btn-fetch-sm:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.fetch-hint {
+  font-family: var(--mono);
+  font-size: 0.56rem;
+  color: var(--faded2);
+  margin-top: 4px;
+  min-height: 12px;
+  letter-spacing: 0.08em;
+}
+
+/* 两个主入口按钮 */
+.entry-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.btn-entry {
+  width: 100%;
+  padding: 14px 20px;
+  border-radius: 3px;
+  font-family: var(--serif);
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+  position: relative;
+  overflow: hidden;
+}
+.btn-entry::after {
+  content: '→';
+  position: absolute; right: 16px;
+  font-family: var(--mono);
+  opacity: 0.5;
+  transition: transform 0.2s, opacity 0.2s;
+}
+.btn-entry:hover::after { transform: translateX(3px); opacity: 1; }
+
+.btn-entry-primary {
+  background: var(--gold);
+  border: none;
+  color: var(--paper);
+  box-shadow: 0 2px 8px rgba(139,105,20,0.3);
+}
+.btn-entry-primary:hover { background: #7a5c10; box-shadow: 0 3px 12px rgba(139,105,20,0.4); }
+.btn-entry-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.btn-entry-secondary {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--ink);
+}
+.btn-entry-secondary:hover { background: var(--gold-glow); border-color: var(--gold-dim); }
+
+.btn-entry-icon { font-size: 1.2rem; flex-shrink: 0; }
+.btn-entry-text { flex: 1; }
+.btn-entry-text strong { display: block; font-size: 0.88rem; }
+.btn-entry-text small { font-family: var(--mono); font-size: 0.58rem; color: inherit; opacity: 0.65; letter-spacing: 0.05em; }
+
+/* 隐藏的文件输入 */
+#file-import { display: none; }
+
+/* ══════════════════════════════════════
+   SCREEN 2: AI 生成向导
+══════════════════════════════════════ */
+#screen-gen {
+  background: var(--ink2);
+  flex-direction: column;
+  align-items: center;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.gen-paper {
+  background: var(--paper);
+  width: 90%; max-width: 480px;
+  border-radius: 2px;
+  padding: 32px 28px 36px;
+  position: relative;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.5), inset 0 0 60px rgba(139,105,20,0.05);
+  margin: 24px 0;
+}
+.gen-paper::before {
+  content: '';
+  position: absolute; inset: 8px;
+  border: 1px solid var(--border);
+  border-radius: 1px;
+  pointer-events: none;
+}
+
+.gen-header {
+  display: flex; align-items: center; gap: 12px;
+  margin-bottom: 24px;
+}
+.gen-back {
+  background: none; border: none;
+  font-family: var(--mono); font-size: 0.65rem;
+  color: var(--faded); cursor: pointer;
+  padding: 4px 0; letter-spacing: 0.1em;
+}
+.gen-back:hover { color: var(--ink); }
+.gen-title {
+  font-family: var(--brush);
+  font-size: 1.4rem;
+  color: var(--ink);
+  flex: 1;
+}
+
+.gen-field { margin-bottom: 16px; }
+.gen-label {
+  font-family: var(--mono);
+  font-size: 0.58rem;
+  color: var(--faded);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+  display: block;
+}
+
+.gen-input, .gen-textarea, .gen-select {
+  width: 100%;
+  background: rgba(255,255,255,0.6);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 10px 12px;
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 0.85rem;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  -webkit-appearance: none;
+}
+.gen-input:focus, .gen-textarea:focus, .gen-select:focus {
+  border-color: var(--gold-dim);
+  box-shadow: 0 0 0 2px var(--gold-glow);
+}
+.gen-input::placeholder, .gen-textarea::placeholder { color: var(--faded2); }
+.gen-textarea { resize: vertical; min-height: 80px; line-height: 1.7; }
+.gen-select { appearance: none; -webkit-appearance: none; cursor: pointer; }
+.gen-select option { background: var(--paper); }
+
+/* 风格标签快选 */
+.style-tags {
+  display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px;
+}
+.style-tag {
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  color: var(--faded);
+  cursor: pointer;
+  transition: all 0.15s;
+  background: transparent;
+  letter-spacing: 0.05em;
+}
+.style-tag:hover { border-color: var(--gold-dim); color: var(--gold); }
+.style-tag.active { background: var(--gold); border-color: var(--gold); color: var(--paper); }
+
+.btn-generate {
+  width: 100%;
+  padding: 13px;
+  background: var(--gold);
+  border: none;
+  border-radius: 3px;
+  color: var(--paper);
+  font-family: var(--serif);
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-top: 8px;
+  box-shadow: 0 2px 8px rgba(139,105,20,0.3);
+  letter-spacing: 0.05em;
+}
+.btn-generate:hover { background: #7a5c10; }
+.btn-generate:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* 生成进度 */
+.gen-progress {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 20px 0;
+  text-align: center;
+}
+.gen-progress.show { display: flex; }
+.gen-spinner {
+  width: 32px; height: 32px;
+  border: 2px solid var(--border);
+  border-top-color: var(--gold);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.gen-progress-text {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  color: var(--faded);
+  letter-spacing: 0.1em;
+}
+
+/* 预览卡片 */
+.card-preview {
+  display: none;
+  margin-top: 20px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: rgba(255,255,255,0.4);
+  overflow: hidden;
+}
+.card-preview.show { display: block; }
+.preview-header {
+  background: var(--paper2);
+  padding: 12px 16px;
+  display: flex; align-items: center; gap: 10px;
+  border-bottom: 1px solid var(--border);
+}
+.preview-name {
+  font-family: var(--brush);
+  font-size: 1.1rem;
+  color: var(--ink);
+  flex: 1;
+}
+.preview-genre {
+  font-family: var(--mono);
+  font-size: 0.58rem;
+  color: var(--faded);
+  letter-spacing: 0.1em;
+  background: var(--paper3);
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+.preview-body { padding: 14px 16px; }
+.preview-desc {
+  font-size: 0.8rem;
+  color: var(--faded);
+  line-height: 1.75;
+  margin-bottom: 10px;
+}
+.preview-first-mes {
+  font-size: 0.82rem;
+  color: var(--ink2);
+  line-height: 1.8;
+  border-left: 2px solid var(--gold-dim);
+  padding-left: 12px;
+  font-style: italic;
+}
+.preview-tags {
+  display: flex; flex-wrap: wrap; gap: 5px; margin-top: 10px;
+}
+.preview-tag {
+  font-family: var(--mono);
+  font-size: 0.55rem;
+  color: var(--faded2);
+  border: 1px solid var(--border);
+  padding: 2px 7px;
+  border-radius: 10px;
+  letter-spacing: 0.05em;
+}
+
+.preview-actions {
+  display: flex; gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+}
+.btn-preview-use {
+  flex: 1;
+  padding: 10px;
+  background: var(--gold);
+  border: none;
+  border-radius: 3px;
+  color: var(--paper);
+  font-family: var(--serif);
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-preview-use:hover { background: #7a5c10; }
+.btn-preview-export {
+  padding: 10px 14px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--faded);
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.btn-preview-export:hover { border-color: var(--gold-dim); color: var(--gold); }
+
+/* ══════════════════════════════════════
+   SCREEN 3: 游戏主界面
+══════════════════════════════════════ */
+#screen-game {
+  background: var(--paper);
+  flex-direction: column;
+}
+
+/* HUD */
+.game-hud {
+  flex-shrink: 0;
+  display: flex; align-items: center;
+  padding: 8px 14px;
+  background: var(--paper2);
+  border-bottom: 1px solid var(--border);
+  gap: 10px;
+  position: relative;
+  z-index: 10;
+}
+.hud-char-name {
+  font-family: var(--brush);
+  font-size: 1rem;
+  color: var(--ink);
+  flex: 1;
+}
+.hud-turn {
+  font-family: var(--mono);
+  font-size: 0.58rem;
+  color: var(--faded2);
+  letter-spacing: 0.1em;
+}
+.hud-turn span { color: var(--gold); }
+
+.btn-hud {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 4px 9px;
+  font-family: var(--mono);
+  font-size: 0.58rem;
+  color: var(--faded);
+  cursor: pointer;
+  transition: all 0.15s;
+  letter-spacing: 0.05em;
+}
+.btn-hud:hover { border-color: var(--gold-dim); color: var(--gold); }
+
+/* 对话区 */
+.dialogue-area {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 16px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  scroll-behavior: smooth;
+  background:
+    repeating-linear-gradient(
+      transparent,
+      transparent 31px,
+      rgba(139,105,20,0.06) 31px,
+      rgba(139,105,20,0.06) 32px
+    );
+  background-size: 100% 32px;
+  background-attachment: local;
+}
+.dialogue-area::-webkit-scrollbar { width: 3px; }
+.dialogue-area::-webkit-scrollbar-track { background: transparent; }
+.dialogue-area::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+/* 消息气泡 */
+.msg { max-width: 90%; animation: msg-in 0.2s ease; }
+@keyframes msg-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; } }
+
+.msg-gm { align-self: flex-start; }
+.msg-gm .speaker {
+  font-family: var(--mono);
+  font-size: 0.56rem;
+  color: var(--faded2);
+  letter-spacing: 0.15em;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+}
+.msg-gm .bubble {
+  background: rgba(255,255,255,0.7);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--gold-dim);
+  border-radius: 0 6px 6px 6px;
+  padding: 11px 14px;
+  font-size: 0.87rem;
+  line-height: 1.9;
+  color: var(--ink2);
+  box-shadow: 0 1px 4px var(--shadow);
+}
+
+.msg-player { align-self: flex-end; }
+.msg-player .bubble {
+  background: var(--ink2);
+  border-radius: 6px 0 6px 6px;
+  padding: 9px 14px;
+  font-size: 0.83rem;
+  line-height: 1.7;
+  color: var(--paper);
+  text-align: right;
+  box-shadow: 0 1px 4px var(--shadow);
+}
+
+.msg-system { align-self: center; }
+.msg-system .bubble {
+  font-family: var(--mono);
+  font-size: 0.58rem;
+  color: var(--faded2);
+  letter-spacing: 0.12em;
+  text-align: center;
+  padding: 2px 0;
+}
+
+.msg-lore { align-self: flex-start; max-width: 100%; }
+.msg-lore .bubble {
+  background: rgba(139,105,20,0.06);
+  border: 1px solid var(--gold-dim);
+  border-radius: 4px;
+  padding: 8px 12px;
+  font-size: 0.75rem;
+  color: var(--gold);
+  font-family: var(--mono);
+  letter-spacing: 0.05em;
+}
+
+/* 打字光标 */
+.typing-cursor {
+  display: inline-block;
+  width: 1px; height: 1em;
+  background: var(--gold);
+  margin-left: 2px;
+  vertical-align: middle;
+  animation: blink 0.9s infinite;
+}
+@keyframes blink { 0%,49% { opacity: 1; } 50%,100% { opacity: 0; } }
+
+/* 快捷chip */
+.chips-area {
+  flex-shrink: 0;
+  padding: 8px 14px;
+  display: flex; gap: 6px; flex-wrap: wrap;
+  border-top: 1px solid rgba(139,105,20,0.1);
+  background: var(--paper2);
+}
+.chip {
+  font-family: var(--mono);
+  font-size: 0.58rem;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: transparent;
+  color: var(--faded);
+  cursor: pointer;
+  transition: all 0.15s;
+  letter-spacing: 0.04em;
+}
+.chip:hover { border-color: var(--gold-dim); color: var(--gold); background: var(--gold-glow); }
+
+/* 输入区 */
+.input-area {
+  flex-shrink: 0;
+  padding: 10px 14px 14px;
+  border-top: 1px solid var(--border);
+  background: var(--paper2);
+}
+.input-row { display: flex; gap: 8px; align-items: flex-end; }
+.player-input {
+  flex: 1;
+  background: rgba(255,255,255,0.7);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 10px 13px;
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 0.87rem;
+  line-height: 1.5;
+  resize: none;
+  outline: none;
+  max-height: 100px;
+  min-height: 42px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  overflow-y: auto;
+}
+.player-input:focus {
+  border-color: var(--gold-dim);
+  box-shadow: 0 0 0 2px var(--gold-glow);
+}
+.player-input::placeholder { color: var(--faded2); font-size: 0.78rem; }
+.player-input:disabled { opacity: 0.5; }
+
+.btn-send {
+  padding: 10px 14px;
+  background: var(--ink2);
+  border: none;
+  border-radius: 4px;
+  color: var(--paper);
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+  align-self: flex-end;
+}
+.btn-send:hover { background: var(--ink); }
+.btn-send:disabled { opacity: 0.35; cursor: not-allowed; }
+
+.input-hint {
+  font-family: var(--mono);
+  font-size: 0.52rem;
+  color: var(--faded2);
+  margin-top: 5px;
+  letter-spacing: 0.06em;
+}
+
+/* ══════════════════════════════════════
+   世界书侧边栏
+══════════════════════════════════════ */
+.lore-panel {
+  position: fixed;
+  top: 0; right: -300px;
+  width: 280px; height: 100%;
+  background: var(--paper);
+  border-left: 1px solid var(--border);
+  z-index: 300;
+  transition: right 0.3s ease;
+  overflow-y: auto;
+  padding: 48px 16px 20px;
+  box-shadow: -4px 0 20px var(--shadow);
+}
+.lore-panel.open { right: 0; }
+.lore-panel-title {
+  font-family: var(--brush);
+  font-size: 1.1rem;
+  color: var(--ink);
+  margin-bottom: 14px;
+}
+.lore-entry {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  background: rgba(255,255,255,0.5);
+}
+.lore-keys {
+  font-family: var(--mono);
+  font-size: 0.58rem;
+  color: var(--gold);
+  margin-bottom: 4px;
+  letter-spacing: 0.05em;
+}
+.lore-content {
+  font-size: 0.75rem;
+  color: var(--faded);
+  line-height: 1.65;
+}
+.lore-empty {
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  color: var(--faded2);
+  text-align: center;
+  padding: 20px 0;
+  letter-spacing: 0.08em;
+}
+
+.lore-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(26,20,16,0.3);
+  z-index: 290;
+  display: none;
+}
+.lore-backdrop.open { display: block; }
+
+/* ══════════════════════════════════════
+   角色信息抽屉（底部）
+══════════════════════════════════════ */
+.char-drawer {
+  position: fixed;
+  bottom: -100%;
+  left: 0; right: 0;
+  background: var(--paper);
+  border-top: 2px solid var(--border);
+  z-index: 300;
+  transition: bottom 0.3s ease;
+  padding: 20px 20px 32px;
+  max-height: 60vh;
+  overflow-y: auto;
+  box-shadow: 0 -4px 20px var(--shadow);
+}
+.char-drawer.open { bottom: 0; }
+.char-drawer-handle {
+  width: 36px; height: 3px;
+  background: var(--border);
+  border-radius: 2px;
+  margin: 0 auto 16px;
+}
+.char-drawer-name {
+  font-family: var(--brush);
+  font-size: 1.4rem;
+  color: var(--ink);
+  margin-bottom: 4px;
+}
+.char-drawer-genre {
+  font-family: var(--mono);
+  font-size: 0.58rem;
+  color: var(--faded2);
+  letter-spacing: 0.12em;
+  margin-bottom: 14px;
+}
+.char-section-title {
+  font-family: var(--mono);
+  font-size: 0.58rem;
+  color: var(--faded);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+  margin-top: 14px;
+}
+.char-desc {
+  font-size: 0.8rem;
+  color: var(--faded);
+  line-height: 1.75;
+}
+.char-scenario {
+  font-size: 0.8rem;
+  color: var(--ink2);
+  line-height: 1.75;
+  border-left: 2px solid var(--gold-dim);
+  padding-left: 12px;
+}
+
+/* ══════════════════════════════════════
+   通用工具
+══════════════════════════════════════ */
+.divider {
+  display: flex; align-items: center; gap: 10px;
+  margin: 20px 0;
+}
+.divider::before, .divider::after {
+  content: '';
+  flex: 1; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--border), transparent);
+}
+.divider-text {
+  font-family: var(--mono);
+  font-size: 0.55rem;
+  color: var(--faded2);
+  letter-spacing: 0.15em;
+}
+
+/* ── 摘要卡片（冒险日志条目）── */
+.msg-summary {
+  align-self: stretch;
+}
+.msg-summary .bubble {
+  background: linear-gradient(135deg, rgba(139,105,20,0.08), rgba(139,105,20,0.04));
+  border: 1px solid var(--gold-dim);
+  border-radius: 4px;
+  padding: 10px 14px;
+  font-size: 0.75rem;
+  color: var(--faded);
+  line-height: 1.7;
+  font-family: var(--mono);
+  letter-spacing: 0.02em;
+  position: relative;
+}
+.msg-summary .bubble::before {
+  content: '📜 冒险日志';
+  display: block;
+  font-size: 0.56rem;
+  color: var(--gold);
+  letter-spacing: 0.15em;
+  margin-bottom: 5px;
+  text-transform: uppercase;
+}
+
+/* ── 重新生成按钮（附在GM消息下方）── */
+.msg-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 5px;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.msg-gm:hover .msg-actions { opacity: 1; }
+.btn-msg-action {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 3px 9px;
+  font-family: var(--mono);
+  font-size: 0.55rem;
+  color: var(--faded2);
+  cursor: pointer;
+  transition: all 0.15s;
+  letter-spacing: 0.05em;
+}
+.btn-msg-action:hover { border-color: var(--gold-dim); color: var(--gold); }
+
+/* ── 存档面板（底部抽屉）── */
+.save-drawer {
+  position: fixed;
+  bottom: -100%;
+  left: 0; right: 0;
+  background: var(--paper);
+  border-top: 2px solid var(--border);
+  z-index: 400;
+  transition: bottom 0.3s ease;
+  padding: 16px 20px 32px;
+  max-height: 70vh;
+  overflow-y: auto;
+  box-shadow: 0 -4px 20px var(--shadow);
+}
+.save-drawer.open { bottom: 0; }
+.save-drawer-handle {
+  width: 36px; height: 3px;
+  background: var(--border);
+  border-radius: 2px;
+  margin: 0 auto 16px;
+}
+.save-drawer-title {
+  font-family: var(--brush);
+  font-size: 1.1rem;
+  color: var(--ink);
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.btn-new-save {
+  padding: 5px 12px;
+  background: var(--gold);
+  border: none;
+  border-radius: 3px;
+  color: var(--paper);
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  cursor: pointer;
+  letter-spacing: 0.06em;
+  transition: all 0.2s;
+}
+.btn-new-save:hover { background: #7a5c10; }
+
+.save-slot {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 11px 14px;
+  margin-bottom: 8px;
+  background: rgba(255,255,255,0.5);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.save-slot-info { flex: 1; }
+.save-slot-name {
+  font-family: var(--brush);
+  font-size: 0.95rem;
+  color: var(--ink);
+}
+.save-slot-meta {
+  font-family: var(--mono);
+  font-size: 0.56rem;
+  color: var(--faded2);
+  letter-spacing: 0.06em;
+  margin-top: 2px;
+}
+.save-slot-actions { display: flex; gap: 6px; }
+.btn-slot {
+  padding: 4px 10px;
+  border-radius: 3px;
+  font-family: var(--mono);
+  font-size: 0.58rem;
+  cursor: pointer;
+  transition: all 0.15s;
+  letter-spacing: 0.04em;
+}
+.btn-slot-load {
+  background: var(--ink2);
+  border: none;
+  color: var(--paper);
+}
+.btn-slot-load:hover { background: var(--ink); }
+.btn-slot-del {
+  background: none;
+  border: 1px solid rgba(139,26,26,0.3);
+  color: var(--red-seal);
+}
+.btn-slot-del:hover { background: rgba(139,26,26,0.08); }
+.save-empty {
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  color: var(--faded2);
+  text-align: center;
+  padding: 20px 0;
+  letter-spacing: 0.08em;
+}
+
+/* 起始页存档入口 */
+.btn-entry-saves {
+  margin-top: 8px;
+}
+
+/* ══════════════════════════════════════
+   状态面板
+══════════════════════════════════════ */
+.status-bar {
+  flex-shrink: 0;
+  display: none;
+  padding: 6px 14px;
+  background: var(--paper3);
+  border-bottom: 1px solid var(--border);
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.status-bar.has-stats { display: flex; }
+.stat-item {
+  display: flex; align-items: center; gap: 5px;
+  font-family: var(--mono); font-size: 0.62rem;
+  color: var(--faded); letter-spacing: 0.04em;
+}
+.stat-label { color: var(--faded2); }
+.stat-value {
+  color: var(--ink2); font-weight: bold; min-width: 20px;
+  transition: color 0.3s;
+}
+.stat-value.changed { animation: stat-flash 1.2s ease; }
+@keyframes stat-flash { 0%,100%{color:var(--ink2)} 30%{color:var(--red-seal)} 60%{color:var(--gold)} }
+.stat-bar-wrap { width: 44px; height: 5px; background: rgba(26,20,16,0.1); border-radius: 3px; overflow: hidden; }
+.stat-bar-fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg,var(--red-seal),var(--gold)); transition: width 0.5s ease; }
+
+/* ══════════════════════════════════════
+   Author's Note 面板
+══════════════════════════════════════ */
+.an-panel {
+  position: fixed; bottom: -100%; left: 0; right: 0;
+  background: var(--paper); border-top: 2px solid var(--border);
+  z-index: 400; transition: bottom 0.3s ease;
+  padding: 16px 20px 32px; box-shadow: 0 -4px 20px var(--shadow);
+}
+.an-panel.open { bottom: 0; }
+.an-handle { width: 36px; height: 3px; background: var(--border); border-radius: 2px; margin: 0 auto 14px; }
+.an-title { font-family: var(--brush); font-size: 1.1rem; color: var(--ink); margin-bottom: 4px; }
+.an-desc { font-family: var(--mono); font-size: 0.58rem; color: var(--faded2); letter-spacing: 0.06em; margin-bottom: 12px; line-height: 1.6; }
+.an-textarea {
+  width: 100%; background: rgba(255,255,255,0.7); border: 1px solid var(--border); border-radius: 4px;
+  padding: 10px 13px; color: var(--ink); font-family: var(--serif); font-size: 0.85rem;
+  line-height: 1.6; resize: vertical; min-height: 80px; outline: none; transition: border-color 0.2s;
+}
+.an-textarea:focus { border-color: var(--gold-dim); }
+.an-textarea::placeholder { color: var(--faded2); font-size: 0.78rem; }
+.an-row { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+.an-pos-label { font-family: var(--mono); font-size: 0.58rem; color: var(--faded); letter-spacing: 0.08em; white-space: nowrap; }
+.an-pos-select {
+  flex: 1; background: rgba(255,255,255,0.6); border: 1px solid var(--border); border-radius: 3px;
+  padding: 6px 10px; color: var(--ink); font-family: var(--mono); font-size: 0.7rem;
+  outline: none; cursor: pointer; appearance: none; -webkit-appearance: none;
+}
+.an-save-btn {
+  margin-top: 12px; width: 100%; padding: 10px;
+  background: var(--ink2); border: none; border-radius: 4px;
+  color: var(--paper); font-family: var(--mono); font-size: 0.72rem;
+  cursor: pointer; transition: all 0.2s; letter-spacing: 0.08em;
+}
+.an-save-btn:hover { background: var(--ink); }
+.an-indicator {
+  width: 6px; height: 6px; border-radius: 50%; background: var(--faded2);
+  display: inline-block; margin-left: 4px; vertical-align: middle; transition: background 0.3s;
+}
+.an-indicator.active { background: var(--gold); box-shadow: 0 0 4px rgba(139,105,20,0.6); }
+
+/* ══════════════════════════════════════
+   Persona 区块（角色抽屉内）
+══════════════════════════════════════ */
+.persona-section { margin-top: 20px; border-top: 1px solid var(--border); padding-top: 14px; }
+.persona-field { margin-bottom: 10px; }
+.persona-input, .persona-textarea {
+  width: 100%; background: rgba(255,255,255,0.6); border: 1px solid var(--border); border-radius: 3px;
+  padding: 8px 11px; color: var(--ink); font-family: var(--serif); font-size: 0.82rem;
+  outline: none; transition: border-color 0.2s; -webkit-appearance: none;
+}
+.persona-input:focus, .persona-textarea:focus { border-color: var(--gold-dim); }
+.persona-input::placeholder, .persona-textarea::placeholder { color: var(--faded2); }
+.persona-textarea { resize: vertical; min-height: 60px; line-height: 1.6; }
+.persona-save-btn {
+  width: 100%; padding: 9px; background: transparent; border: 1px solid var(--border); border-radius: 3px;
+  color: var(--faded); font-family: var(--mono); font-size: 0.65rem;
+  cursor: pointer; transition: all 0.2s; letter-spacing: 0.06em;
+}
+.persona-save-btn:hover { border-color: var(--gold-dim); color: var(--gold); }
+
+/* ══════════════════════════════════════
+   暗色主题
+══════════════════════════════════════ */
+body.dark-theme {
+  --paper:     #1e1a14;
+  --paper2:    #252018;
+  --paper3:    #2d2820;
+  --gold:      #c8960a;
+  --gold-dim:  rgba(200,150,10,0.45);
+  --gold-glow: rgba(200,150,10,0.1);
+  --faded:     #8a7e6a;
+  --faded2:    #5a5040;
+  --border:    rgba(200,150,10,0.2);
+  --shadow:    rgba(0,0,0,0.4);
+  --ink:       #e8e0cc;
+  --ink2:      #ccc0a0;
+  --red-seal:  #c04040;
+}
+body.dark-theme .home-paper,
+body.dark-theme .gen-paper { background: var(--paper); }
+body.dark-theme .cfg-input,
+body.dark-theme .cfg-select,
+body.dark-theme .gen-input,
+body.dark-theme .gen-textarea,
+body.dark-theme .gen-select,
+body.dark-theme .player-input,
+body.dark-theme .an-textarea,
+body.dark-theme .persona-input,
+body.dark-theme .persona-textarea { background: rgba(255,255,255,0.05); color: var(--ink); }
+body.dark-theme .msg-gm .bubble { background: rgba(255,255,255,0.04); }
+body.dark-theme .msg-player .bubble { background: rgba(200,150,10,0.15); color: var(--ink); }
+body.dark-theme .lore-entry,
+body.dark-theme .save-slot { background: rgba(255,255,255,0.04); }
+
+.btn-theme {
+  background: none; border: 1px solid var(--border);
+  border-radius: 3px; padding: 4px 9px;
+  font-family: var(--mono); font-size: 0.58rem;
+  color: var(--faded); cursor: pointer; transition: all 0.15s;
+  letter-spacing: 0.05em;
+}
+.btn-theme:hover { border-color: var(--gold-dim); color: var(--gold); }
+
+/* ══════════════════════════════════════
+   搜索覆盖层
+══════════════════════════════════════ */
+.search-overlay {
+  position: fixed; inset: 0; z-index: 500;
+  background: rgba(26,20,16,0.6);
+  display: none; flex-direction: column;
+  align-items: center; padding-top: 60px;
+}
+.search-overlay.open { display: flex; }
+.search-box {
+  width: 90%; max-width: 460px;
+  background: var(--paper);
+  border-radius: 6px;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+  overflow: hidden;
+}
+.search-input-row {
+  display: flex; align-items: center;
+  padding: 12px 16px; gap: 10px;
+  border-bottom: 1px solid var(--border);
+}
+.search-icon { color: var(--faded2); font-size: 0.9rem; flex-shrink: 0; }
+.search-input {
+  flex: 1; background: none; border: none; outline: none;
+  font-family: var(--serif); font-size: 0.9rem; color: var(--ink);
+}
+.search-input::placeholder { color: var(--faded2); }
+.search-close {
+  background: none; border: none; color: var(--faded2);
+  font-size: 1rem; cursor: pointer; padding: 2px 4px;
+}
+.search-results {
+  max-height: 50vh; overflow-y: auto;
+  padding: 8px 0;
+}
+.search-result-item {
+  padding: 10px 16px; cursor: pointer;
+  border-bottom: 1px solid rgba(139,105,20,0.08);
+  transition: background 0.15s;
+}
+.search-result-item:hover { background: var(--gold-glow); }
+.search-result-role {
+  font-family: var(--mono); font-size: 0.55rem;
+  color: var(--faded2); letter-spacing: 0.1em;
+  margin-bottom: 3px; text-transform: uppercase;
+}
+.search-result-text {
+  font-size: 0.8rem; color: var(--faded); line-height: 1.6;
+}
+.search-result-text mark {
+  background: rgba(139,105,20,0.25); color: var(--gold);
+  border-radius: 2px; padding: 0 2px;
+}
+.search-empty {
+  padding: 24px; text-align: center;
+  font-family: var(--mono); font-size: 0.62rem;
+  color: var(--faded2); letter-spacing: 0.1em;
+}
+
+/* ══════════════════════════════════════
+   冒险日志面板（左侧滑出）
+══════════════════════════════════════ */
+.journal-panel {
+  position: fixed; top: 0; left: -300px;
+  width: 280px; height: 100%;
+  background: var(--paper);
+  border-right: 1px solid var(--border);
+  z-index: 300; transition: left 0.3s ease;
+  overflow-y: auto; padding: 48px 16px 20px;
+  box-shadow: 4px 0 20px var(--shadow);
+}
+.journal-panel.open { left: 0; }
+.journal-title {
+  font-family: var(--brush); font-size: 1.1rem;
+  color: var(--ink); margin-bottom: 14px;
+}
+.journal-entry {
+  border-left: 2px solid var(--gold-dim);
+  padding: 8px 10px; margin-bottom: 12px;
+  position: relative;
+}
+.journal-turn {
+  font-family: var(--mono); font-size: 0.55rem;
+  color: var(--gold); letter-spacing: 0.1em; margin-bottom: 4px;
+}
+.journal-text {
+  font-size: 0.78rem; color: var(--faded); line-height: 1.7;
+}
+.journal-empty {
+  font-family: var(--mono); font-size: 0.62rem;
+  color: var(--faded2); text-align: center;
+  padding: 20px 0; letter-spacing: 0.08em;
+}
+
+/* ══════════════════════════════════════
+   地图/位置面板（底部抽屉）
+══════════════════════════════════════ */
+.map-drawer {
+  position: fixed; bottom: -100%; left: 0; right: 0;
+  background: var(--paper); border-top: 2px solid var(--border);
+  z-index: 400; transition: bottom 0.3s ease;
+  padding: 16px 20px 32px; max-height: 65vh;
+  overflow-y: auto; box-shadow: 0 -4px 20px var(--shadow);
+}
+.map-drawer.open { bottom: 0; }
+.map-handle {
+  width: 36px; height: 3px; background: var(--border);
+  border-radius: 2px; margin: 0 auto 14px;
+}
+.map-header {
+  display: flex; align-items: center;
+  justify-content: space-between; margin-bottom: 14px;
+}
+.map-title { font-family: var(--brush); font-size: 1.1rem; color: var(--ink); }
+.map-current-label {
+  font-family: var(--mono); font-size: 0.58rem;
+  color: var(--faded2); letter-spacing: 0.1em;
+}
+.map-current {
+  background: linear-gradient(135deg, rgba(139,105,20,0.1), rgba(139,105,20,0.04));
+  border: 1px solid var(--gold-dim); border-radius: 6px;
+  padding: 12px 14px; margin-bottom: 16px;
+}
+.map-current-name {
+  font-family: var(--brush); font-size: 1rem; color: var(--gold);
+  margin-bottom: 4px;
+}
+.map-current-desc {
+  font-size: 0.78rem; color: var(--faded); line-height: 1.65;
+}
+.map-section-title {
+  font-family: var(--mono); font-size: 0.58rem; color: var(--faded);
+  letter-spacing: 0.2em; text-transform: uppercase;
+  margin-bottom: 8px; margin-top: 4px;
+}
+.map-locations {
+  display: flex; flex-direction: column; gap: 6px;
+}
+.map-loc-item {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 8px 10px; border-radius: 4px;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.3);
+  transition: background 0.15s;
+}
+.map-loc-item.current-loc {
+  border-color: var(--gold-dim);
+  background: rgba(139,105,20,0.06);
+}
+.map-loc-icon { font-size: 0.9rem; flex-shrink: 0; margin-top: 1px; }
+.map-loc-info { flex: 1; }
+.map-loc-name {
+  font-family: var(--brush); font-size: 0.88rem; color: var(--ink);
+}
+.map-loc-desc {
+  font-size: 0.72rem; color: var(--faded); line-height: 1.55; margin-top: 2px;
+}
+.map-loc-visits {
+  font-family: var(--mono); font-size: 0.52rem;
+  color: var(--faded2); letter-spacing: 0.06em; margin-top: 2px;
+}
+.map-empty {
+  font-family: var(--mono); font-size: 0.62rem; color: var(--faded2);
+  text-align: center; padding: 20px 0; letter-spacing: 0.08em;
+}
+
+/* ══════════════════════════════════════
+   多开局选择器
+══════════════════════════════════════ */
+.greeting-select-wrap {
+  margin-top: 14px;
+}
+.greeting-select-label {
+  font-family: var(--mono); font-size: 0.58rem;
+  color: var(--faded); letter-spacing: 0.15em;
+  text-transform: uppercase; margin-bottom: 7px;
+}
+.greeting-list {
+  display: flex; flex-direction: column; gap: 6px;
+}
+.greeting-item {
+  border: 1px solid var(--border); border-radius: 5px;
+  padding: 9px 13px; cursor: pointer;
+  background: rgba(255,255,255,0.3); transition: all 0.15s;
+  font-size: 0.8rem; color: var(--faded);
+  line-height: 1.55; position: relative;
+}
+.greeting-item:hover { border-color: var(--gold-dim); background: var(--gold-glow); }
+.greeting-item.selected { border-color: var(--gold); background: rgba(139,105,20,0.08); color: var(--ink2); }
+.greeting-item-label {
+  font-family: var(--mono); font-size: 0.55rem;
+  color: var(--gold); letter-spacing: 0.1em; margin-bottom: 3px;
+}
+.md-h1 { font-family: var(--brush); font-size: 1.15rem; color: var(--ink); margin: 10px 0 4px; line-height: 1.4; }
+.md-h2 { font-family: var(--brush); font-size: 1rem; color: var(--ink2); margin: 8px 0 3px; border-bottom: 1px solid var(--border); padding-bottom: 2px; }
+.md-h3 { font-family: var(--serif); font-size: 0.9rem; color: var(--ink2); font-weight: 600; margin: 6px 0 2px; }
+.md-li { padding-left: 10px; color: var(--faded); font-size: 0.83rem; line-height: 1.7; }
+.md-code {
+  background: rgba(26,20,16,0.06); border: 1px solid var(--border);
+  border-radius: 4px; padding: 8px 12px; margin: 6px 0;
+  font-family: var(--mono); font-size: 0.75rem; color: var(--ink2);
+  overflow-x: auto; white-space: pre;
+}
+.md-inline {
+  background: rgba(26,20,16,0.07); border-radius: 3px;
+  padding: 1px 5px; font-family: var(--mono); font-size: 0.8em;
+  color: var(--red-seal);
+}
+.md-hr { border: none; border-top: 1px solid var(--border); margin: 10px 0; }
+.md-npc { color: var(--gold); font-style: italic; }
+.md-tag { color: var(--red-seal); font-weight: 600; }
+.md-inner {
+  display: block; margin: 4px 0;
+  color: var(--faded2); font-style: italic; font-size: 0.82rem;
+  border-left: 2px solid var(--border); padding-left: 8px;
+  line-height: 1.6;
+}
+
+/* 暗色主题下的 markdown */
+body.dark-theme .md-code { background: rgba(255,255,255,0.05); }
+body.dark-theme .md-inline { background: rgba(255,255,255,0.08); }
+.choices-wrap {
+  display: flex; flex-direction: column; gap: 7px;
+  margin-top: 10px; align-self: flex-start;
+  max-width: 88%; animation: msg-in 0.25s ease;
+}
+.choice-bubble {
+  display: inline-block;
+  padding: 9px 16px;
+  background: var(--paper2);
+  border: 1.5px solid var(--gold-dim);
+  border-radius: 18px 18px 18px 4px;
+  font-family: var(--serif); font-size: 0.85rem;
+  color: var(--ink2); cursor: pointer;
+  transition: all 0.18s; line-height: 1.5;
+  text-align: left;
+  -webkit-tap-highlight-color: transparent;
+}
+.choice-bubble:hover { background: var(--gold-glow); border-color: var(--gold); color: var(--ink); transform: translateX(3px); }
+.choice-bubble:active { transform: translateX(1px) scale(0.98); }
+.choice-bubble.used { opacity: 0.4; cursor: default; pointer-events: none; }
+.choices-label {
+  font-family: var(--mono); font-size: 0.55rem;
+  color: var(--faded2); letter-spacing: 0.12em;
+  margin-bottom: 2px; text-transform: uppercase;
+}
+
+/* ══════════════════════════════════════
+   判定面板（覆盖层）
+══════════════════════════════════════ */
+.roll-overlay {
+  position: fixed; inset: 0; z-index: 600;
+  background: rgba(26,20,16,0.75);
+  display: none; align-items: center; justify-content: center;
+}
+.roll-overlay.open { display: flex; }
+.roll-box {
+  background: var(--paper);
+  border-radius: 8px; padding: 28px 28px 24px;
+  width: 88%; max-width: 340px;
+  box-shadow: 0 12px 48px rgba(0,0,0,0.5);
+  position: relative; overflow: hidden;
+}
+.roll-box::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: repeating-linear-gradient(45deg, transparent, transparent 8px, rgba(139,105,20,0.03) 8px, rgba(139,105,20,0.03) 9px);
+  pointer-events: none;
+}
+.roll-action {
+  font-family: var(--brush); font-size: 1.1rem;
+  color: var(--ink); margin-bottom: 4px; line-height: 1.4;
+}
+.roll-difficulty {
+  font-family: var(--mono); font-size: 0.62rem;
+  color: var(--faded2); letter-spacing: 0.12em;
+  margin-bottom: 18px;
+}
+.roll-bar-wrap {
+  height: 10px; background: rgba(26,20,16,0.1);
+  border-radius: 5px; overflow: hidden; margin-bottom: 10px;
+  position: relative;
+}
+.roll-bar-fill {
+  height: 100%; border-radius: 5px;
+  background: linear-gradient(90deg, var(--red-seal), var(--gold), #5a8a20);
+  width: 0%; transition: width 0.8s cubic-bezier(0.22,1,0.36,1);
+}
+.roll-bar-needle {
+  position: absolute; top: -3px;
+  width: 3px; height: 16px;
+  background: var(--ink2); border-radius: 2px;
+  transition: left 0.8s cubic-bezier(0.22,1,0.36,1);
+  left: 0%;
+}
+.roll-numbers {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 14px;
+}
+.roll-score {
+  font-family: var(--mono); font-size: 1.6rem;
+  font-weight: bold; color: var(--ink);
+  transition: color 0.4s;
+}
+.roll-score.success { color: #4a7a20; }
+.roll-score.fail    { color: var(--red-seal); }
+.roll-vs {
+  font-family: var(--mono); font-size: 0.6rem;
+  color: var(--faded2); letter-spacing: 0.1em;
+}
+.roll-threshold {
+  font-family: var(--mono); font-size: 1rem;
+  color: var(--faded); text-align: right;
+}
+.roll-result-text {
+  font-family: var(--brush); font-size: 1.2rem;
+  text-align: center; padding: 8px;
+  border-radius: 4px; margin-bottom: 14px;
+  transition: all 0.4s;
+}
+.roll-result-text.success { color: #4a7a20; background: rgba(74,122,32,0.08); }
+.roll-result-text.fail    { color: var(--red-seal); background: rgba(139,26,26,0.08); }
+.roll-result-text.crit    { color: var(--gold); background: rgba(139,105,20,0.12); }
+.roll-confirm {
+  width: 100%; padding: 10px;
+  background: var(--ink2); border: none; border-radius: 4px;
+  color: var(--paper); font-family: var(--mono); font-size: 0.72rem;
+  cursor: pointer; transition: all 0.2s; letter-spacing: 0.08em;
+  display: none;
+}
+.roll-confirm.show { display: block; }
+.roll-confirm:hover { background: var(--ink); }
+
+/* ══════════════════════════════════════
+   任务面板（底部抽屉）
+══════════════════════════════════════ */
+.quest-drawer {
+  position: fixed; bottom: -100%; left: 0; right: 0;
+  background: var(--paper); border-top: 2px solid var(--border);
+  z-index: 400; transition: bottom 0.3s ease;
+  padding: 16px 20px 32px; max-height: 65vh;
+  overflow-y: auto; box-shadow: 0 -4px 20px var(--shadow);
+}
+.quest-drawer.open { bottom: 0; }
+.quest-handle { width: 36px; height: 3px; background: var(--border); border-radius: 2px; margin: 0 auto 14px; }
+.quest-header {
+  display: flex; align-items: center;
+  justify-content: space-between; margin-bottom: 14px;
+}
+.quest-title { font-family: var(--brush); font-size: 1.1rem; color: var(--ink); }
+.quest-count {
+  font-family: var(--mono); font-size: 0.58rem;
+  color: var(--faded2); letter-spacing: 0.1em;
+}
+.quest-tabs {
+  display: flex; gap: 6px; margin-bottom: 14px;
+}
+.quest-tab {
+  padding: 4px 12px;
+  border: 1px solid var(--border); border-radius: 20px;
+  font-family: var(--mono); font-size: 0.58rem;
+  color: var(--faded); cursor: pointer; transition: all 0.15s;
+  background: none; letter-spacing: 0.05em;
+}
+.quest-tab.active { background: var(--ink2); border-color: var(--ink2); color: var(--paper); }
+.quest-list { display: flex; flex-direction: column; gap: 8px; }
+.quest-item {
+  border: 1px solid var(--border); border-radius: 6px;
+  padding: 11px 14px; background: rgba(255,255,255,0.4);
+  transition: all 0.15s;
+}
+.quest-item.active-quest  { border-left: 3px solid var(--gold); }
+.quest-item.done-quest    { border-left: 3px solid #4a7a20; opacity: 0.75; }
+.quest-item.failed-quest  { border-left: 3px solid var(--red-seal); opacity: 0.65; }
+.quest-item-header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.quest-item-icon { font-size: 0.9rem; flex-shrink: 0; }
+.quest-item-name { font-family: var(--brush); font-size: 0.92rem; color: var(--ink); flex: 1; }
+.quest-item-status {
+  font-family: var(--mono); font-size: 0.52rem;
+  padding: 2px 7px; border-radius: 10px; letter-spacing: 0.05em;
+}
+.status-active  { background: rgba(139,105,20,0.12); color: var(--gold); }
+.status-done    { background: rgba(74,122,32,0.12);  color: #4a7a20; }
+.status-failed  { background: rgba(139,26,26,0.1);   color: var(--red-seal); }
+.quest-item-desc { font-size: 0.75rem; color: var(--faded); line-height: 1.65; }
+.quest-empty {
+  font-family: var(--mono); font-size: 0.62rem; color: var(--faded2);
+  text-align: center; padding: 24px 0; letter-spacing: 0.08em;
+}
+
+/* 错误提示 */
+.err-toast {
+  position: fixed; bottom: 80px; left: 50%;
+  transform: translateX(-50%);
+  background: var(--red-seal);
+  color: var(--paper);
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  padding: 8px 18px;
+  border-radius: 4px;
+  z-index: 999;
+  opacity: 0;
+  transition: opacity 0.3s;
+  pointer-events: none;
+  white-space: nowrap;
+  letter-spacing: 0.05em;
+  max-width: 90vw;
+  text-align: center;
+}
+.err-toast.show { opacity: 1; }
+
+/* ══════════════════════════════════════
+   角色卡库
+══════════════════════════════════════ */
+.card-lib-panel {
+  position: fixed; inset: 0; z-index: 600;
+  background: var(--ink2);
+  display: none; flex-direction: column;
+  align-items: center; overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.card-lib-panel.open { display: flex; }
+.card-lib-inner {
+  width: 90%; max-width: 460px;
+  padding: 28px 0 40px;
+}
+.card-lib-header {
+  display: flex; align-items: center; gap: 12px;
+  margin-bottom: 20px;
+}
+.card-lib-title {
+  font-family: var(--brush); font-size: 1.4rem;
+  color: var(--paper); flex: 1;
+}
+.btn-lib-back {
+  background: none; border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 4px; padding: 5px 12px;
+  font-family: var(--mono); font-size: 0.62rem;
+  color: rgba(255,255,255,0.5); cursor: pointer;
+  transition: all 0.2s; letter-spacing: 0.08em;
+}
+.btn-lib-back:hover { color: var(--paper2); border-color: rgba(255,255,255,0.3); }
+.btn-lib-import {
+  padding: 5px 12px;
+  background: var(--gold); border: none; border-radius: 4px;
+  font-family: var(--mono); font-size: 0.62rem;
+  color: var(--paper); cursor: pointer;
+  transition: all 0.2s; letter-spacing: 0.06em;
+}
+.btn-lib-import:hover { background: #7a5c10; }
+
+.lib-card-item {
+  background: var(--paper);
+  border-radius: 6px; margin-bottom: 10px;
+  overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+  transition: transform 0.15s;
+}
+.lib-card-item:hover { transform: translateY(-1px); }
+.lib-card-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.lib-card-name {
+  font-family: var(--brush); font-size: 1rem;
+  color: var(--ink); flex: 1;
+}
+.lib-card-genre {
+  font-family: var(--mono); font-size: 0.55rem;
+  color: var(--faded2); letter-spacing: 0.08em;
+  background: var(--paper2); padding: 2px 7px;
+  border-radius: 10px;
+}
+.lib-card-desc {
+  padding: 10px 14px;
+  font-size: 0.78rem; color: var(--faded);
+  line-height: 1.65;
+}
+.lib-card-actions {
+  display: flex; gap: 6px; padding: 10px 14px;
+  border-top: 1px solid var(--border);
+}
+.btn-lib-play {
+  flex: 1; padding: 8px;
+  background: var(--ink2); border: none; border-radius: 4px;
+  color: var(--paper); font-family: var(--mono);
+  font-size: 0.65rem; cursor: pointer;
+  transition: all 0.2s; letter-spacing: 0.06em;
+}
+.btn-lib-play:hover { background: var(--ink); }
+.btn-lib-del {
+  padding: 8px 12px;
+  background: none; border: 1px solid rgba(139,26,26,0.3);
+  border-radius: 4px; color: var(--red-seal);
+  font-family: var(--mono); font-size: 0.62rem;
+  cursor: pointer; transition: all 0.2s;
+}
+.btn-lib-del:hover { background: rgba(139,26,26,0.08); }
+.lib-empty {
+  text-align: center; padding: 40px 0;
+  font-family: var(--mono); font-size: 0.65rem;
+  color: rgba(255,255,255,0.25); letter-spacing: 0.1em;
+  line-height: 2;
+}
+
+/* ══════════════════════════════════════
+   消息编辑
+══════════════════════════════════════ */
+.msg-edit-overlay {
+  position: fixed; inset: 0; z-index: 600;
+  background: rgba(26,20,16,0.7);
+  display: none; align-items: flex-end;
+  justify-content: center;
+}
+.msg-edit-overlay.open { display: flex; }
+.msg-edit-box {
+  width: 100%; max-width: 600px;
+  background: var(--paper);
+  border-radius: 12px 12px 0 0;
+  padding: 20px 20px 32px;
+  box-shadow: 0 -8px 32px rgba(0,0,0,0.4);
+}
+.msg-edit-title {
+  font-family: var(--mono); font-size: 0.62rem;
+  color: var(--faded2); letter-spacing: 0.15em;
+  text-transform: uppercase; margin-bottom: 10px;
+}
+.msg-edit-textarea {
+  width: 100%; min-height: 120px; max-height: 40vh;
+  background: rgba(255,255,255,0.6);
+  border: 1px solid var(--border); border-radius: 4px;
+  padding: 10px 13px;
+  color: var(--ink); font-family: var(--serif);
+  font-size: 0.87rem; line-height: 1.7;
+  resize: vertical; outline: none;
+  transition: border-color 0.2s;
+}
+.msg-edit-textarea:focus { border-color: var(--gold-dim); }
+.msg-edit-actions {
+  display: flex; gap: 8px; margin-top: 10px;
+}
+.btn-edit-confirm {
+  flex: 1; padding: 10px;
+  background: var(--ink2); border: none; border-radius: 4px;
+  color: var(--paper); font-family: var(--mono);
+  font-size: 0.7rem; cursor: pointer;
+  transition: all 0.2s; letter-spacing: 0.06em;
+}
+.btn-edit-confirm:hover { background: var(--ink); }
+.btn-edit-cancel {
+  padding: 10px 16px;
+  background: none; border: 1px solid var(--border);
+  border-radius: 4px; color: var(--faded);
+  font-family: var(--mono); font-size: 0.7rem;
+  cursor: pointer; transition: all 0.2s;
+}
+.btn-edit-cancel:hover { border-color: var(--gold-dim); color: var(--gold); }
+.btn-edit-delete {
+  padding: 10px 12px;
+  background: none; border: 1px solid rgba(139,26,26,0.3);
+  border-radius: 4px; color: var(--red-seal);
+  font-family: var(--mono); font-size: 0.7rem;
+  cursor: pointer; transition: all 0.2s;
+}
+.btn-edit-delete:hover { background: rgba(139,26,26,0.08); }
+
+/* 消息上的编辑按钮（hover 显示）*/
+.msg-edit-btn {
+  background: none; border: 1px solid var(--border);
+  border-radius: 3px; padding: 2px 8px;
+  font-family: var(--mono); font-size: 0.52rem;
+  color: var(--faded2); cursor: pointer;
+  transition: all 0.15s; letter-spacing: 0.05em;
+  margin-left: 4px;
+}
+.msg-edit-btn:hover { border-color: var(--gold-dim); color: var(--gold); }
+</style>
+</head>
+<body>
+
+<!-- ══════ 错误提示 ══════ -->
+<div class="err-toast" id="err-toast"></div>
+
+<!-- ══════ SCREEN 1: 起始页 ══════ -->
+<div class="screen active" id="screen-home">
+  <div class="home-paper">
+    <div class="logo-area">
+      <div class="logo-title">故事引擎</div>
+      <div class="logo-sub">Tavern · Story Engine · v1.0</div>
+    </div>
+
+    <div class="logo-divider"><span class="logo-divider-icon">✦</span></div>
+
+    <div class="config-section">
+      <div class="cfg-label">API 中转地址（Base URL）</div>
+      <div class="cfg-row">
+        <input type="text" class="cfg-input" id="cfg-base-url" placeholder="https://api.example.com/v1">
+      </div>
+      <div class="cfg-label">API Key</div>
+      <div class="cfg-row">
+        <input type="password" class="cfg-input" id="cfg-api-key" placeholder="sk-...">
+        <button class="btn-fetch-sm" id="btn-fetch-models">拉取</button>
+      </div>
+      <div class="cfg-label">模型</div>
+      <div class="cfg-row">
+        <select class="cfg-select" id="cfg-model">
+          <option value="">── 请先拉取 ──</option>
+        </select>
+      </div>
+      <div class="fetch-hint" id="fetch-hint"></div>
+    </div>
+
+    <div class="divider"><span class="divider-text">选择开始方式</span></div>
+
+    <div class="entry-buttons">
+      <button class="btn-entry btn-entry-primary" id="btn-go-gen" disabled>
+        <span class="btn-entry-icon">✨</span>
+        <span class="btn-entry-text">
+          <strong>让 AI 生成世界</strong>
+          <small>描述你的想法，AI 帮你造世界</small>
+        </span>
+      </button>
+      <button class="btn-entry btn-entry-secondary" id="btn-import-json">
+        <span class="btn-entry-icon">📜</span>
+        <span class="btn-entry-text">
+          <strong>导入角色卡</strong>
+          <small>JSON / PNG，兼容 SillyTavern</small>
+        </span>
+      </button>
+      <button class="btn-entry btn-entry-secondary btn-entry-saves" id="btn-load-save">
+        <span class="btn-entry-icon">💾</span>
+        <span class="btn-entry-text">
+          <strong>读取存档</strong>
+          <small>继续上次的冒险</small>
+        </span>
+      </button>
+      <button class="btn-entry btn-entry-secondary" id="btn-open-library">
+        <span class="btn-entry-icon">📚</span>
+        <span class="btn-entry-text">
+          <strong>角色卡库</strong>
+          <small>管理已保存的角色卡</small>
+        </span>
+      </button>
+    </div>
+
+    <input type="file" id="file-import" accept=".json,.png">
+  </div>
+</div>
+
+<!-- ══════ 角色卡库面板 ══════ -->
+<div class="card-lib-panel" id="card-lib-panel">
+  <div class="card-lib-inner">
+    <div class="card-lib-header">
+      <button class="btn-lib-back" id="btn-lib-back">← 返回</button>
+      <div class="card-lib-title">角色卡库</div>
+      <button class="btn-lib-import" id="btn-lib-import">+ 导入</button>
+    </div>
+    <div id="lib-list"></div>
+  </div>
+</div>
+<input type="file" id="file-lib-import" accept=".json,.png" style="display:none">
+
+<!-- ══════ 消息编辑覆盖层 ══════ -->
+<div class="msg-edit-overlay" id="msg-edit-overlay">
+  <div class="msg-edit-box">
+    <div class="msg-edit-title" id="msg-edit-title">编辑消息</div>
+    <textarea class="msg-edit-textarea" id="msg-edit-textarea"></textarea>
+    <div class="msg-edit-actions">
+      <button class="btn-edit-confirm" id="btn-edit-confirm">✓ 保存</button>
+      <button class="btn-edit-cancel" id="btn-edit-cancel">取消</button>
+      <button class="btn-edit-delete" id="btn-edit-delete">🗑 删除</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════ SCREEN 2: 生成向导 ══════ -->
+<div class="screen" id="screen-gen">
+  <div class="gen-paper">
+    <div class="gen-header">
+      <button class="gen-back" id="btn-gen-back">← 返回</button>
+      <div class="gen-title">世界创建</div>
+    </div>
+
+    <div class="gen-field">
+      <label class="gen-label">世界风格</label>
+      <div class="style-tags" id="style-tags">
+        <button class="style-tag" data-style="东方武侠">东方武侠</button>
+        <button class="style-tag" data-style="赛博朋克">赛博朋克</button>
+        <button class="style-tag" data-style="西方奇幻">西方奇幻</button>
+        <button class="style-tag" data-style="都市怪谈">都市怪谈</button>
+        <button class="style-tag" data-style="末世废土">末世废土</button>
+        <button class="style-tag" data-style="星际科幻">星际科幻</button>
+        <button class="style-tag" data-style="克苏鲁">克苏鲁</button>
+        <button class="style-tag" data-style="古代宫廷">古代宫廷</button>
+      </div>
+    </div>
+
+    <div class="gen-field">
+      <label class="gen-label">世界/角色简述</label>
+      <textarea class="gen-textarea" id="gen-desc"
+        placeholder="例：一个失忆的刺客在蒸汽朋克帝国都城寻找自己的身份，身边有一个神秘的机械猫咪伙伴…"></textarea>
+    </div>
+
+    <div class="gen-field">
+      <label class="gen-label">玩家扮演的角色定位</label>
+      <input type="text" class="gen-input" id="gen-role"
+        placeholder="例：帝国密探、流亡贵族、街头混混…">
+    </div>
+
+    <button class="btn-generate" id="btn-generate">✦ 开始生成世界</button>
+
+    <!-- 生成进度 -->
+    <div class="gen-progress" id="gen-progress">
+      <div class="gen-spinner"></div>
+      <div class="gen-progress-text" id="gen-progress-text">正在构建世界…</div>
+    </div>
+
+    <!-- 预览 -->
+    <div class="card-preview" id="card-preview">
+      <div class="preview-header">
+        <div class="preview-name" id="pv-name">—</div>
+        <div class="preview-genre" id="pv-genre">—</div>
+      </div>
+      <div class="preview-body">
+        <div class="preview-desc" id="pv-desc"></div>
+        <div class="preview-first-mes" id="pv-first-mes"></div>
+        <div class="preview-tags" id="pv-tags"></div>
+      </div>
+      <div class="preview-actions">
+        <button class="btn-preview-use" id="btn-use-card">开始冒险</button>
+        <button class="btn-preview-export" id="btn-export-card">导出 JSON</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════ SCREEN 3: 游戏主界面 ══════ -->
+<div class="screen" id="screen-game">
+  <!-- HUD -->
+  <div class="game-hud">
+    <div class="hud-char-name" id="hud-char-name">—</div>
+    <div class="hud-turn">回合 <span id="hud-turn">1</span></div>
+    <button class="btn-hud" id="btn-show-journal">日志</button>
+    <button class="btn-hud" id="btn-show-map">地图</button>
+    <button class="btn-hud" id="btn-show-quest">任务</button>
+    <button class="btn-hud" id="btn-show-search">搜索</button>
+    <button class="btn-hud" id="btn-show-char">角色</button>
+    <button class="btn-hud" id="btn-show-lore">世界书</button>
+    <button class="btn-hud" id="btn-show-an">笔记<span class="an-indicator" id="an-indicator"></span></button>
+    <button class="btn-hud" id="btn-export-chat">导出</button>
+    <button class="btn-hud btn-theme" id="btn-theme">🌙</button>
+    <button class="btn-hud" id="btn-save-game">存档</button>
+    <button class="btn-hud" id="btn-exit-game">退出</button>
+  </div>
+
+  <!-- 状态面板 -->
+  <div class="status-bar" id="status-bar"></div>
+
+  <!-- 对话 -->
+  <div class="dialogue-area" id="dialogue-area"></div>
+
+  <!-- 快捷行动 -->
+  <div class="chips-area" id="chips-area"></div>
+
+  <!-- 输入 -->
+  <div class="input-area">
+    <div class="input-row">
+      <textarea class="player-input" id="player-input"
+        placeholder="输入你的行动或对话…" rows="1" disabled></textarea>
+      <button class="btn-send" id="btn-send" disabled>发送</button>
+    </div>
+    <div class="input-hint">ENTER 发送 · SHIFT+ENTER 换行</div>
+  </div>
+</div>
+
+<!-- 冒险日志（左侧） -->
+<div class="lore-backdrop" id="journal-backdrop"></div>
+<div class="journal-panel" id="journal-panel">
+  <div class="journal-title">📜 冒险日志</div>
+  <div id="journal-list"></div>
+</div>
+
+<!-- 地图/位置（底部） -->
+<div class="lore-backdrop" id="map-backdrop"></div>
+<div class="map-drawer" id="map-drawer">
+  <div class="map-handle"></div>
+  <div class="map-header">
+    <div class="map-title">🗺 探索地图</div>
+    <div class="map-current-label" id="map-visit-count">0 个地点已探索</div>
+  </div>
+  <div class="map-current" id="map-current-box" style="display:none">
+    <div class="map-current-name" id="map-current-name">—</div>
+    <div class="map-current-desc" id="map-current-desc">—</div>
+  </div>
+  <div class="map-section-title">已探索地点</div>
+  <div class="map-locations" id="map-locations">
+    <div class="map-empty">尚未探索任何地点</div>
+  </div>
+</div>
+
+<!-- 搜索覆盖层 -->
+<div class="search-overlay" id="search-overlay">
+  <div class="search-box">
+    <div class="search-input-row">
+      <span class="search-icon">🔍</span>
+      <input class="search-input" id="search-input" placeholder="搜索对话历史…">
+      <button class="search-close" id="btn-search-close">✕</button>
+    </div>
+    <div class="search-results" id="search-results">
+      <div class="search-empty">输入关键词开始搜索</div>
+    </div>
+  </div>
+</div>
+
+<!-- 判定覆盖层 -->
+<div class="roll-overlay" id="roll-overlay">
+  <div class="roll-box">
+    <div class="roll-action" id="roll-action">行动判定</div>
+    <div class="roll-difficulty" id="roll-difficulty">难度：普通</div>
+    <div class="roll-bar-wrap">
+      <div class="roll-bar-fill" id="roll-bar-fill"></div>
+      <div class="roll-bar-needle" id="roll-bar-needle"></div>
+    </div>
+    <div class="roll-numbers">
+      <div>
+        <div style="font-family:var(--mono);font-size:0.55rem;color:var(--faded2);letter-spacing:0.1em;margin-bottom:2px">你的结果</div>
+        <div class="roll-score" id="roll-score">—</div>
+      </div>
+      <div class="roll-vs">VS</div>
+      <div style="text-align:right">
+        <div style="font-family:var(--mono);font-size:0.55rem;color:var(--faded2);letter-spacing:0.1em;margin-bottom:2px">成功线</div>
+        <div class="roll-threshold" id="roll-threshold">—</div>
+      </div>
+    </div>
+    <div class="roll-result-text" id="roll-result-text">掷骰中…</div>
+    <button class="roll-confirm" id="roll-confirm">继续 →</button>
+  </div>
+</div>
+
+<!-- 任务抽屉 -->
+<div class="lore-backdrop" id="quest-backdrop"></div>
+<div class="quest-drawer" id="quest-drawer">
+  <div class="quest-handle"></div>
+  <div class="quest-header">
+    <div class="quest-title">⚔️ 任务</div>
+    <div class="quest-count" id="quest-count">0 个任务</div>
+  </div>
+  <div class="quest-tabs">
+    <button class="quest-tab active" data-filter="active">进行中</button>
+    <button class="quest-tab" data-filter="done">已完成</button>
+    <button class="quest-tab" data-filter="failed">已失败</button>
+    <button class="quest-tab" data-filter="all">全部</button>
+  </div>
+  <div class="quest-list" id="quest-list"></div>
+</div>
+
+<!-- 世界书侧边栏 -->
+<div class="lore-backdrop" id="lore-backdrop"></div>
+<div class="lore-panel" id="lore-panel">
+  <div class="lore-panel-title">📖 世界书</div>
+  <div id="lore-list"></div>
+</div>
+
+<!-- 角色信息抽屉 -->
+<div class="lore-backdrop" id="char-backdrop"></div>
+<div class="char-drawer" id="char-drawer">
+  <div class="char-drawer-handle"></div>
+  <div class="char-drawer-name" id="drawer-name">—</div>
+  <div class="char-drawer-genre" id="drawer-genre">—</div>
+  <div class="char-section-title">角色简介</div>
+  <div class="char-desc" id="drawer-desc">—</div>
+  <div class="char-section-title">当前场景</div>
+  <div class="char-scenario" id="drawer-scenario">—</div>
+
+  <!-- Persona 区块 -->
+  <div class="persona-section">
+    <div class="char-section-title">🧑 我的身份（Persona）</div>
+    <div class="persona-field">
+      <div class="cfg-label" style="margin-top:0">名字</div>
+      <input class="persona-input" id="persona-name" placeholder="你的角色名字…">
+    </div>
+    <div class="persona-field">
+      <div class="cfg-label">背景 / 性格</div>
+      <textarea class="persona-textarea" id="persona-bg" placeholder="你的身份、背景、性格特点…会注入到GM的系统提示中"></textarea>
+    </div>
+    <button class="persona-save-btn" id="btn-persona-save">✓ 保存身份设定</button>
+  </div>
+
+  <!-- 判定关键词配置 -->
+  <div class="persona-section">
+    <div class="char-section-title">🎲 判定关键词配置</div>
+    <div style="font-family:var(--mono);font-size:0.56rem;color:var(--faded2);margin-bottom:10px;line-height:1.6;letter-spacing:0.05em">
+      玩家行动包含这些词时触发判定。用逗号分隔，留空使用默认词表。
+    </div>
+    <div class="persona-field">
+      <div class="cfg-label" style="margin-top:0">困难（成功线65）</div>
+      <input class="persona-input" id="roll-hard-words" placeholder="攻击,战斗,刺杀,闯入,欺骗…">
+    </div>
+    <div class="persona-field">
+      <div class="cfg-label">普通（成功线50）</div>
+      <input class="persona-input" id="roll-medium-words" placeholder="说服,交涉,搜索,侦查…">
+    </div>
+    <div class="persona-field">
+      <div class="cfg-label">简单（成功线35）</div>
+      <input class="persona-input" id="roll-easy-words" placeholder="观察,询问,移动,前往…">
+    </div>
+    <div class="persona-field" style="display:flex;align-items:center;gap:10px;margin-top:4px">
+      <input type="checkbox" id="roll-enabled" style="width:16px;height:16px;cursor:pointer" checked>
+      <label for="roll-enabled" style="font-family:var(--mono);font-size:0.65rem;color:var(--faded);cursor:pointer;letter-spacing:0.05em">启用自动判定</label>
+    </div>
+    <button class="persona-save-btn" id="btn-roll-save" style="margin-top:8px">✓ 保存判定配置</button>
+  </div>
+</div>
+
+<!-- Author's Note 面板 -->
+<div class="lore-backdrop" id="an-backdrop"></div>
+<div class="an-panel" id="an-panel">
+  <div class="an-handle"></div>
+  <div class="an-title">✍️ 作者注记</div>
+  <div class="an-desc">对GM的隐藏提示，每次回复都会悄悄注入。可用于设定当前氛围、天气、时间、剧情节奏等。</div>
+  <textarea class="an-textarea" id="an-text" placeholder="例：现在是深夜，气氛应该更压抑一些。玩家即将遭遇重要NPC，请铺垫一些伏笔。"></textarea>
+  <div class="an-row">
+    <span class="an-pos-label">插入位置</span>
+    <select class="an-pos-select" id="an-position">
+      <option value="before_history">对话历史之前</option>
+      <option value="after_history" selected>对话历史之后</option>
+    </select>
+  </div>
+  <button class="an-save-btn" id="btn-an-save">✓ 保存并关闭</button>
+</div>
+
+<!-- 存档抽屉 -->
+<div class="lore-backdrop" id="save-backdrop"></div>
+<div class="save-drawer" id="save-drawer">
+  <div class="save-drawer-handle"></div>
+  <div class="save-drawer-title">
+    <span>💾 存档管理</span>
+    <button class="btn-new-save" id="btn-do-save">保存当前</button>
+  </div>
+  <div id="save-list"></div>
+</div>
+
+<!-- 导出面板 -->
+<div class="lore-backdrop" id="export-backdrop"></div>
+<div class="save-drawer" id="export-drawer" style="max-height:50vh">
+  <div class="save-drawer-handle"></div>
+  <div class="save-drawer-title">
+    <span>📤 导出对话</span>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:8px;margin-top:4px">
+    <button class="btn-slot btn-slot-load" id="btn-export-md" style="width:100%;padding:11px;font-size:0.75rem">
+      导出为 Markdown (.md)
+    </button>
+    <button class="btn-slot btn-slot-load" id="btn-export-txt" style="width:100%;padding:11px;font-size:0.75rem">
+      导出为 纯文本 (.txt)
+    </button>
+    <button class="btn-slot btn-slot-load" id="btn-export-json-chat" style="width:100%;padding:11px;font-size:0.75rem">
+      导出完整存档 (.json)
+    </button>
+  </div>
+</div>
+
+<!-- 判定配置面板（在角色抽屉里扩展） -->
+<script>
+// ══════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════
+const CFG = { baseUrl: '', apiKey: '', model: '' };
+
+let CARD = null;
+
+const GAME = {
+  turn: 1,
+  history: [],
+  summary: '',
+  summaryLog: [],
+  streaming: false,
+  alive: true,
+  SUMMARY_EVERY: 8,
+  KEEP_RECENT: 6,
+  stats: {},
+  authorNote: '',
+  anPosition: 'after_history',
+  persona: { name: '', background: '' },
+  locations: [],
+  currentLocation: '',
+  // 第四批
+  quests: [],
+  questFilter: 'active',
+  pendingRoll: null,
+  // 第五批
+  rollEnabled: true,
+  rollCustomKeywords: { hard: [], medium: [], easy: [] },
+  structuredMemory: true
+};
+
+const SAVE_PREFIX = 'tavern_save_';
+const DARK_KEY    = 'tavern_dark_theme';
+
+// ══════════════════════════════════════
+//  DOM
+// ══════════════════════════════════════
+const $ = id => document.getElementById(id);
+const screens = {
+  home: $('screen-home'),
+  gen:  $('screen-gen'),
+  game: $('screen-game')
+};
+
+function showScreen(name) {
+  Object.values(screens).forEach(s => s.classList.remove('active'));
+  screens[name].classList.add('active');
+}
+
+function showErr(msg, duration = 3000) {
+  const t = $('err-toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), duration);
+}
+
+// ══════════════════════════════════════
+//  HOME SCREEN
+// ══════════════════════════════════════
+$('btn-fetch-models').addEventListener('click', async () => {
+  const baseUrl = $('cfg-base-url').value.trim().replace(/\/$/, '');
+  const apiKey  = $('cfg-api-key').value.trim();
+  const hint    = $('fetch-hint');
+  const btn     = $('btn-fetch-models');
+
+  if (!baseUrl) { showErr('请填写 Base URL'); return; }
+
+  btn.disabled = true;
+  hint.style.color = 'var(--faded2)';
+  hint.textContent = '拉取中…';
+
+  try {
+    const resp = await fetch(`${baseUrl}/models`, {
+      headers: { 'Authorization': `Bearer ${apiKey}` }
+    });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.json();
+    const list = Array.isArray(data) ? data : (data.data || []);
+    if (!list.length) throw new Error('模型列表为空');
+
+    list.sort((a, b) => (a.id || '').localeCompare(b.id || ''));
+    const sel = $('cfg-model');
+    sel.innerHTML = list.map(m => `<option value="${m.id}">${m.id}</option>`).join('');
+    hint.style.color = 'var(--gold)';
+    hint.textContent = `✓ ${list.length} 个模型`;
+    $('btn-go-gen').disabled = false;
+
+    CFG.baseUrl = baseUrl;
+    CFG.apiKey  = apiKey;
+    CFG.model   = sel.value;
+    sel.addEventListener('change', () => { CFG.model = sel.value; });
+
+    // 保存到本地
+    localStorage.setItem('tavern_cfg', JSON.stringify({ baseUrl, apiKey, model: sel.value }));
+  } catch(e) {
+    hint.style.color = 'var(--red-seal)';
+    hint.textContent = '失败：' + e.message;
+  }
+  btn.disabled = false;
+});
+
+$('btn-go-gen').addEventListener('click', () => {
+  CFG.baseUrl = $('cfg-base-url').value.trim().replace(/\/$/, '');
+  CFG.apiKey  = $('cfg-api-key').value.trim();
+  CFG.model   = $('cfg-model').value;
+  if (!CFG.model) { showErr('请先选择模型'); return; }
+  showScreen('gen');
+});
+
+$('btn-load-save').addEventListener('click', () => {
+  CFG.baseUrl = $('cfg-base-url').value.trim().replace(/\/$/, '');
+  CFG.apiKey  = $('cfg-api-key').value.trim();
+  CFG.model   = $('cfg-model').value;
+  if (!CFG.baseUrl || !CFG.model) { showErr('请先配置 API 并拉取模型'); return; }
+  openSaveDrawer(true); // true = 在首页模式（读取后直接进游戏）
+});
+
+// 导入 JSON
+$('btn-import-json').addEventListener('click', () => {
+  CFG.baseUrl = $('cfg-base-url').value.trim().replace(/\/$/, '');
+  CFG.apiKey  = $('cfg-api-key').value.trim();
+  CFG.model   = $('cfg-model').value;
+  if (!CFG.baseUrl || !CFG.model) { showErr('请先配置 API 并拉取模型'); return; }
+  $('file-import').click();
+});
+
+$('file-import').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  e.target.value = '';
+  try {
+    let json;
+    if (file.name.endsWith('.png') || file.type === 'image/png') {
+      json = await extractCardFromPNG(file);
+    } else {
+      const text = await file.text();
+      json = JSON.parse(text);
+    }
+    const card = normalizeCard(json);
+    addToLibrary(card); // 自动加入卡库
+    loadCard(card);
+    startGame();
+  } catch(err) {
+    showErr('导入失败：' + err.message);
+  }
+});
+
+// ── PNG 角色卡提取（读取 tEXt chunk）──
+async function extractCardFromPNG(file) {
+  const buf = await file.arrayBuffer();
+  const bytes = new Uint8Array(buf);
+
+  // 验证 PNG 签名
+  const sig = [137,80,78,71,13,10,26,10];
+  for (let i = 0; i < 8; i++) {
+    if (bytes[i] !== sig[i]) throw new Error('不是有效的 PNG 文件');
+  }
+
+  let offset = 8;
+  while (offset < bytes.length) {
+    const length = (bytes[offset]<<24)|(bytes[offset+1]<<16)|(bytes[offset+2]<<8)|bytes[offset+3];
+    const type = String.fromCharCode(bytes[offset+4], bytes[offset+5], bytes[offset+6], bytes[offset+7]);
+    const data = bytes.slice(offset+8, offset+8+length);
+
+    if (type === 'tEXt') {
+      // tEXt: keyword\0text
+      let sep = data.indexOf(0);
+      if (sep === -1) sep = data.length;
+      const keyword = String.fromCharCode(...data.slice(0, sep));
+      const text    = String.fromCharCode(...data.slice(sep+1));
+
+      // ST 用 'chara' 作为 keyword，内容是 base64 JSON
+      if (keyword === 'chara') {
+        try {
+          const decoded = atob(text);
+          return JSON.parse(decoded);
+        } catch {
+          throw new Error('PNG 中的角色卡数据无法解析');
+        }
+      }
+    }
+
+    if (type === 'IEND') break;
+    offset += 12 + length; // length(4) + type(4) + data + crc(4)
+  }
+  throw new Error('PNG 中未找到角色卡数据（需要含 chara tEXt chunk）');
+}
+
+// 标准化角色卡（兼容 ST 格式）
+function normalizeCard(json) {
+  const d = json.data || json;
+
+  // 世界书条目：区分 constant（常驻）和关键词触发两种
+  const rawEntries = d.world_book
+    || d.character_book?.entries?.map(e => ({
+         keywords: e.keys || [],
+         content:  e.content || '',
+         constant: e.constant || false,
+         enabled:  e.enabled !== false  // 默认启用
+       }))
+    || [];
+
+  const world_book = rawEntries
+    .filter(e => e.enabled !== false)
+    .map(e => ({
+      keywords: e.keywords || e.keys || [],
+      content:  e.content || '',
+      constant: !!e.constant
+    }));
+
+  return {
+    name:               d.name || '未命名角色',
+    genre:              d.tags?.[0] || d.genre || '未知风格',
+    description:        d.description || d.char_description || '',
+    scenario:           d.scenario || '',
+    first_mes:          d.first_mes || d.first_message || '',
+    alternate_greetings: d.alternate_greetings || [],
+    quick_actions:      d.quick_actions || [],
+    world_book,
+    regex_scripts:      d.regex_scripts || [],
+    tags:               d.tags || []
+  };
+}
+
+// ══════════════════════════════════════
+//  GEN SCREEN
+// ══════════════════════════════════════
+let selectedStyle = '';
+
+$('style-tags').addEventListener('click', e => {
+  const tag = e.target.closest('.style-tag');
+  if (!tag) return;
+  document.querySelectorAll('.style-tag').forEach(t => t.classList.remove('active'));
+  tag.classList.add('active');
+  selectedStyle = tag.dataset.style;
+});
+
+$('btn-gen-back').addEventListener('click', () => showScreen('home'));
+
+$('btn-generate').addEventListener('click', async () => {
+  const desc = $('gen-desc').value.trim();
+  const role = $('gen-role').value.trim();
+  if (!desc) { showErr('请描述你的世界'); return; }
+
+  $('btn-generate').disabled = true;
+  $('gen-progress').classList.add('show');
+  $('card-preview').classList.remove('show');
+
+  const progressTexts = ['正在构建世界…', '生成角色设定…', '编写世界书…', '完善开场白…'];
+  let pi = 0;
+  const progressTimer = setInterval(() => {
+    $('gen-progress-text').textContent = progressTexts[pi % progressTexts.length];
+    pi++;
+  }, 1800);
+
+  const prompt = buildGenPrompt(selectedStyle, desc, role);
+
+  try {
+    const result = await callAI([{ role: 'user', content: prompt }], 2000, false);
+    clearInterval(progressTimer);
+
+    // 提取 JSON
+    const jsonMatch = result.match(/```json\s*([\s\S]+?)\s*```/) ||
+                      result.match(/\{[\s\S]+\}/);
+    if (!jsonMatch) throw new Error('AI 未返回有效 JSON');
+    const raw = jsonMatch[1] || jsonMatch[0];
+    const cardData = JSON.parse(raw);
+    const card = normalizeCard(cardData);
+
+    // 预览
+    $('pv-name').textContent = card.name;
+    $('pv-genre').textContent = card.genre || selectedStyle;
+    $('pv-desc').textContent = card.description.slice(0, 120) + (card.description.length > 120 ? '…' : '');
+    $('pv-first-mes').textContent = card.first_mes.slice(0, 200) + (card.first_mes.length > 200 ? '…' : '');
+    $('pv-tags').innerHTML = (card.tags || []).map(t => `<span class="preview-tag">${t}</span>`).join('');
+    $('card-preview').classList.add('show');
+
+    // 绑定按钮
+    $('btn-use-card').onclick = () => { loadCard(card); startGame(); };
+    $('btn-export-card').onclick = () => exportCard(card);
+
+  } catch(err) {
+    clearInterval(progressTimer);
+    showErr('生成失败：' + err.message, 4000);
+  }
+
+  $('gen-progress').classList.remove('show');
+  $('btn-generate').disabled = false;
+});
+
+function buildGenPrompt(style, desc, role) {
+  return `你是一个 RPG 世界设计师。请根据以下信息生成一张完整的角色卡 JSON。
+
+风格：${style || '自由风格'}
+世界/角色简述：${desc}
+玩家角色定位：${role || '主角'}
+
+请严格按以下 JSON 格式输出，不要输出其他内容：
+
+\`\`\`json
+{
+  "name": "角色或世界的名字（简洁，2-6字）",
+  "genre": "风格标签（如：东方武侠 · 江湖恩怨）",
+  "description": "GM系统提示词，描述世界观、规则、NPC、氛围，约300字，用第二人称'你'叙述玩家身份",
+  "scenario": "当前场景描述，约60字，交代玩家现在在哪、发生了什么",
+  "first_mes": "GM开场白，约150字，有画面感，引导玩家进入世界，末尾留一个悬念或选择点",
+  "quick_actions": ["行动1", "行动2", "行动3", "行动4"],
+  "world_book": [
+    { "keywords": ["关键词1", "关键词2"], "content": "触发这些关键词时注入的背景知识，约50字" },
+    { "keywords": ["关键词3"], "content": "另一条世界书条目" }
+  ],
+  "regex_scripts": [],
+  "tags": ["标签1", "标签2", "标签3"]
+}
+\`\`\`
+
+world_book 至少生成 3-5 条，覆盖世界中的重要地点、人物、组织或规则。`;
+}
+
+function exportCard(card) {
+  const blob = new Blob([JSON.stringify(card, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${card.name || 'card'}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ══════════════════════════════════════
+//  GAME
+// ══════════════════════════════════════
+function loadCard(card) {
+  CARD = card;
+  GAME.turn = 1;
+  GAME.history = [];
+  GAME.summary = '';
+  GAME.summaryLog = [];
+  GAME.stats = {};
+  GAME.locations = [];
+  GAME.currentLocation = '';
+  GAME.quests = [];
+  GAME.questFilter = 'active';
+  GAME.alive = true;
+
+  $('hud-char-name').textContent = card.name;
+  $('hud-turn').textContent = '1';
+  $('drawer-name').textContent = card.name;
+  $('drawer-genre').textContent = card.genre || '';
+  $('drawer-desc').textContent = card.description;
+  $('drawer-scenario').textContent = card.scenario || '—';
+
+  $('status-bar').innerHTML = '';
+  $('status-bar').classList.remove('has-stats');
+
+  renderLorePanel();
+  renderChips();
+  renderMapDrawer();
+  renderJournalPanel();
+  renderQuestDrawer();
+  $('dialogue-area').innerHTML = '';
+}
+
+function startGame() {
+  showScreen('game');
+
+  // 有多个开局时先选择
+  const greetings = CARD.alternate_greetings || [];
+  if (greetings.length > 0) {
+    showGreetingSelector([CARD.first_mes, ...greetings]);
+    return;
+  }
+
+  launchWithGreeting(CARD.first_mes);
+}
+
+function showGreetingSelector(greetings) {
+  $('player-input').disabled = true;
+  $('btn-send').disabled = true;
+
+  const area = $('dialogue-area');
+  const wrap = document.createElement('div');
+  wrap.className = 'greeting-select-wrap';
+  wrap.innerHTML = `
+    <div class="greeting-select-label">选择开局</div>
+    <div class="greeting-list">
+      ${greetings.map((g, i) => {
+        const preview = cleanDisplayText(g).slice(0, 80).replace(/<[^>]+>/g, '').replace(/\n/g, ' ');
+        return `<div class="greeting-item" data-index="${i}">
+          <div class="greeting-item-label">开局 ${i + 1}</div>
+          ${preview}…
+        </div>`;
+      }).join('')}
+    </div>`;
+
+  wrap.addEventListener('click', e => {
+    const item = e.target.closest('.greeting-item');
+    if (!item) return;
+    wrap.querySelectorAll('.greeting-item').forEach(el => el.classList.remove('selected'));
+    item.classList.add('selected');
+    const idx = parseInt(item.dataset.index);
+    setTimeout(() => {
+      wrap.remove();
+      launchWithGreeting(greetings[idx]);
+    }, 300);
+  });
+
+  area.appendChild(wrap);
+}
+
+function launchWithGreeting(greetingText) {
+  if (greetingText) {
+    const cleaned = cleanDisplayText(greetingText);
+    const div = addMessage('gm', cleaned);
+    GAME.history.push({ role: 'assistant', content: greetingText });
+    div.dataset.historyIndex = GAME.history.length - 1;
+    addMsgActions(div, greetingText);
+    parseStatCommands(greetingText);
+    $('player-input').disabled = false;
+    $('btn-send').disabled = false;
+    $('player-input').focus();
+  } else {
+    sendToGM('游戏开始，请给出开场叙述，约150字。', true);
+  }
+}
+
+function buildSystemPrompt() {
+  let sys = `你是一个 RPG 游戏的叙事 GM（游戏主持人）。\n\n`;
+  sys += `【角色/世界设定】\n${CARD.description}\n\n`;
+  if (CARD.scenario) sys += `【当前场景】\n${CARD.scenario}\n\n`;
+  if (GAME.summary)  sys += `【剧情摘要（之前发生的事）】\n${GAME.summary}\n\n`;
+
+  // Persona 注入
+  if (GAME.persona.name || GAME.persona.background) {
+    sys += `【玩家身份】\n`;
+    if (GAME.persona.name)       sys += `名字：${GAME.persona.name}\n`;
+    if (GAME.persona.background) sys += `背景：${GAME.persona.background}\n`;
+    sys += '\n';
+  }
+
+  // 结构化记忆注入
+  if (GAME.structuredMemory) {
+    sys += buildStructuredMemory();
+  }
+
+  sys += `【GM规则】\n- 每回合叙述100-200字，有画面感\n- 用第二人称"你"叙述\n- NPC对话用「」标注\n- 保持世界观一致性\n- 根据玩家行动推进剧情\n`;
+  sys += `- 状态变化在回复末尾输出：[STAT:名称=值] 或 [STAT:名称=+值]\n`;
+  sys += `- 获得物品：[ITEM:物品名]\n`;
+  sys += `- 进入新地点：[LOC:地点名|描述|emoji]\n`;
+  sys += `- 关键决策点给出选项（2-4个）：[CHOICE:选项A|选项B|选项C]\n`;
+  sys += `- 任务变化：新任务[QUEST:名称|active|描述|emoji]，完成[QUEST:名称|done|描述|emoji]，失败[QUEST:名称|failed|描述|emoji]\n`;
+  return sys;
+}
+
+// 结构化记忆：把当前状态格式化成表格注入
+function buildStructuredMemory() {
+  const lines = [];
+
+  // 数值状态
+  if (Object.keys(GAME.stats).length) {
+    lines.push('【当前状态】');
+    lines.push(Object.entries(GAME.stats)
+      .map(([k, v]) => `${k}: ${v}`).join(' | '));
+    lines.push('');
+  }
+
+  // 当前位置
+  if (GAME.currentLocation) {
+    const loc = GAME.locations.find(l => l.name === GAME.currentLocation);
+    lines.push(`【当前位置】${GAME.currentLocation}${loc?.desc ? '：' + loc.desc : ''}`);
+    lines.push('');
+  }
+
+  // 进行中任务
+  const activeQuests = GAME.quests.filter(q => q.status === 'active');
+  if (activeQuests.length) {
+    lines.push('【进行中任务】');
+    activeQuests.forEach(q => lines.push(`- ${q.icon} ${q.name}：${q.desc || '进行中'}`));
+    lines.push('');
+  }
+
+  // 已探索地点（最近5个）
+  if (GAME.locations.length > 1) {
+    const recent = [...GAME.locations]
+      .sort((a, b) => b.lastTurn - a.lastTurn)
+      .slice(0, 5);
+    lines.push(`【已探索地点】${recent.map(l => l.name).join('、')}`);
+    lines.push('');
+  }
+
+  return lines.length ? lines.join('\n') + '\n' : '';
+}
+
+// Author's Note 注入（位置灵活）
+function injectAuthorNote(messages) {
+  if (!GAME.authorNote.trim()) return messages;
+  const note = { role: 'system', content: `【作者注记】${GAME.authorNote}` };
+  if (GAME.anPosition === 'before_history') {
+    // 插在 system 之后、历史之前
+    return [messages[0], note, ...messages.slice(1)];
+  } else {
+    // 插在最后一条 user 消息之前
+    return [...messages.slice(0, -1), note, messages[messages.length - 1]];
+  }
+}
+
+function getLoreInjections() {
+  if (!CARD.world_book?.length) return '';
+  const recentText = GAME.history.slice(-4).map(m => m.content).join(' ')
+    + ' ' + ($('player-input').value || '');
+
+  const matched = [];
+  for (const entry of CARD.world_book) {
+    if (entry.constant) {
+      // constant 条目永远注入
+      matched.push(entry.content);
+    } else if (entry.keywords?.length) {
+      // 关键词触发
+      const hit = entry.keywords.some(kw => recentText.includes(kw));
+      if (hit) matched.push(entry.content);
+    }
+  }
+  if (!matched.length) return '';
+  return `\n\n【世界书参考资料】\n` + matched.join('\n\n');
+}
+
+// 正则后处理
+function applyRegex(text) {
+  if (!CARD.regex_scripts?.length) return text;
+  let out = text;
+  for (const r of CARD.regex_scripts) {
+    try {
+      const re = new RegExp(r.pattern, r.flags || 'g');
+      out = out.replace(re, r.replace ?? '');
+    } catch {}
+  }
+  return out;
+}
+
+async function sendToGM(userContent, isFirst = false, regenerate = false) {
+  if (GAME.streaming) return;
+  GAME.streaming = true;
+  $('player-input').disabled = true;
+  $('btn-send').disabled = true;
+
+  if (!isFirst && !regenerate) {
+    GAME.history.push({ role: 'user', content: userContent });
+  }
+
+  // 重新生成：先移除最后一条 assistant 消息（出错时可恢复）
+  let poppedAssistant = null;
+  if (regenerate) {
+    const last = GAME.history[GAME.history.length - 1];
+    if (last?.role === 'assistant') poppedAssistant = GAME.history.pop();
+  }
+
+  const bubble = regenerate
+    ? (() => {
+        // 替换最后一条 GM 消息的 bubble
+        const msgs = $('dialogue-area').querySelectorAll('.msg-gm');
+        const lastMsg = msgs[msgs.length - 1];
+        const b = lastMsg?.querySelector('.bubble');
+        if (b) { b.innerHTML = '<span class="typing-cursor"></span>'; return b; }
+        return addStreamingMessage();
+      })()
+    : addStreamingMessage();
+
+  let fullText = '';
+
+  try {
+    const lore = getLoreInjections();
+    const sysPrompt = buildSystemPrompt() + lore;
+
+    let messages = [
+      { role: 'system', content: sysPrompt },
+      ...GAME.history,
+      ...(isFirst ? [{ role: 'user', content: userContent }] : [])
+    ];
+
+    // 注入 Author's Note
+    messages = injectAuthorNote(messages);
+
+    const resp = await fetch(`${CFG.baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${CFG.apiKey}`
+      },
+      body: JSON.stringify({
+        model: CFG.model,
+        max_tokens: 600,
+        stream: true,
+        messages
+      })
+    });
+
+    if (!resp.ok) {
+      const e = await resp.json().catch(() => ({}));
+      throw new Error(e?.error?.message || `HTTP ${resp.status}`);
+    }
+
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      const lines = buf.split('\n');
+      buf = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const data = line.slice(6).trim();
+        if (data === '[DONE]') continue;
+        try {
+          const j = JSON.parse(data);
+          const delta = j.choices?.[0]?.delta?.content;
+          if (delta) {
+            fullText += delta;
+            bubble.innerHTML = formatText(applyRegex(cleanDisplayText(fullText))) + '<span class="typing-cursor"></span>';
+            $('dialogue-area').scrollTop = $('dialogue-area').scrollHeight;
+          }
+        } catch {}
+      }
+    }
+
+    bubble.innerHTML = formatText(applyRegex(cleanDisplayText(fullText)));
+    // 加重新生成按钮
+    const msgEl = bubble.closest('.msg-gm');
+    if (msgEl) addMsgActions(msgEl, fullText);
+
+    GAME.history.push({ role: 'assistant', content: fullText });
+    GAME.turn++;
+    $('hud-turn').textContent = GAME.turn;
+
+    // 解析状态指令
+    parseStatCommands(fullText);
+
+    // 自动存档（静默）
+    autoSave();
+
+    // 检查是否触发摘要
+    if (GAME.turn % GAME.SUMMARY_EVERY === 0) {
+      triggerSummary();
+    }
+
+  } catch(err) {
+    bubble.innerHTML = `<span style="color:var(--red-seal)">连接失败：${err.message}</span>`;
+    if (!isFirst && !regenerate) GAME.history.pop();
+    // regenerate 出错时恢复被移除的 assistant 消息，避免 history 越来越短
+    if (regenerate && poppedAssistant) GAME.history.push(poppedAssistant);
+  }
+
+  GAME.streaming = false;
+  $('player-input').disabled = false;
+  $('btn-send').disabled = false;
+  $('player-input').focus();
+}
+
+// ══════════════════════════════════════
+//  状态系统
+// ══════════════════════════════════════
+
+// 清理显示文本（隐藏 STAT/ITEM 指令行）
+function cleanDisplayText(text) {
+  return text
+    .replace(/\[STAT:[^\]]+\]/g, '')
+    .replace(/\[ITEM:[^\]]+\]/g, '')
+    .replace(/\[LOC:[^\]]+\]/g, '')
+    .replace(/\[CHOICE:[^\]]+\]/g, '')
+    .replace(/\[QUEST:[^\]]+\]/g, '')
+    .trim();
+}
+
+function parseStatCommands(text) {
+  let changed = false;
+  const statRe = /\[STAT:([^=\]]+)=([+\-]?\d+)\]/g;
+  let m;
+  while ((m = statRe.exec(text)) !== null) {
+    const key = m[1].trim();
+    const raw = m[2];
+    if (raw.startsWith('+') || raw.startsWith('-')) {
+      GAME.stats[key] = (GAME.stats[key] || 0) + parseInt(raw);
+    } else {
+      GAME.stats[key] = parseInt(raw);
+    }
+    changed = true;
+  }
+  const itemRe = /\[ITEM:([^\]]+)\]/g;
+  while ((m = itemRe.exec(text)) !== null) {
+    const item = m[1].trim();
+    const key = '背包';
+    if (!GAME.stats[key]) GAME.stats[key] = '';
+    GAME.stats[key] = GAME.stats[key] ? GAME.stats[key] + ',' + item : item;
+    changed = true;
+  }
+  if (changed) renderStatusBar();
+
+  // 解析位置指令 [LOC:名称|描述|emoji]
+  const locRe = /\[LOC:([^|\]]+)\|([^|\]]*)\|([^\]]*)\]/g;
+  while ((m = locRe.exec(text)) !== null) {
+    const name = m[1].trim();
+    const desc = m[2].trim();
+    const icon = m[3].trim() || '📍';
+    updateLocation(name, desc, icon);
+  }
+
+  // 解析选项 [CHOICE:A|B|C]
+  const choiceRe = /\[CHOICE:([^\]]+)\]/g;
+  while ((m = choiceRe.exec(text)) !== null) {
+    const options = m[1].split('|').map(s => s.trim()).filter(Boolean);
+    if (options.length) renderChoices(options);
+  }
+
+  // 解析任务 [QUEST:名称|状态|描述|emoji]
+  const questRe = /\[QUEST:([^|\]]+)\|([^|\]]+)\|([^|\]]*)\|?([^\]]*)\]/g;
+  while ((m = questRe.exec(text)) !== null) {
+    updateQuest(m[1].trim(), m[2].trim(), m[3].trim(), m[4].trim() || '📋');
+  }
+}
+
+// ══════════════════════════════════════
+//  选项气泡系统
+// ══════════════════════════════════════
+function escapeHtml(str) {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function renderChoices(options) {
+  const area = $('dialogue-area');
+  const wrap = document.createElement('div');
+  wrap.className = 'choices-wrap';
+  wrap.innerHTML = `<div class="choices-label">选择你的行动</div>` +
+    options.map((opt) => `<button class="choice-bubble" data-opt="${escapeHtml(opt)}">${escapeHtml(opt)}</button>`).join('');
+
+  wrap.addEventListener('click', e => {
+    const btn = e.target.closest('.choice-bubble');
+    if (!btn || GAME.streaming) return;
+    const chosen = btn.dataset.opt;
+    // 标记所有选项为已用
+    wrap.querySelectorAll('.choice-bubble').forEach(b => b.classList.add('used'));
+    // 当作玩家输入发送
+    addMessage('player', chosen);
+    // 判定检查
+    const needsRoll = checkNeedsRoll(chosen);
+    if (needsRoll) {
+      doRoll(chosen, needsRoll);
+    } else {
+      sendToGM(`[回合${GAME.turn}] 玩家选择：${chosen}`);
+    }
+  });
+
+  area.appendChild(wrap);
+  area.scrollTop = area.scrollHeight;
+}
+
+// ══════════════════════════════════════
+//  判定系统
+// ══════════════════════════════════════
+const DEFAULT_ROLL_KEYWORDS = {
+  hard:   { words: ['攻击','战斗','刺杀','闯入','欺骗','偷窃','施法','跳跃','攀爬'], threshold: 65 },
+  medium: { words: ['说服','交涉','搜索','侦查','识别','治疗','撬锁','追踪'],       threshold: 50 },
+  easy:   { words: ['观察','询问','移动','前往','查看','拾取','交谈','休息'],        threshold: 35 },
+};
+
+function checkNeedsRoll(text) {
+  if (!GAME.rollEnabled) return null;
+  // 合并默认+自定义关键词
+  for (const level of ['hard', 'medium', 'easy']) {
+    const defaults  = DEFAULT_ROLL_KEYWORDS[level].words;
+    const customs   = GAME.rollCustomKeywords[level] || [];
+    const threshold = DEFAULT_ROLL_KEYWORDS[level].threshold;
+    const allWords  = [...defaults, ...customs];
+    if (allWords.some(w => text.includes(w))) return { level, threshold };
+  }
+  return null;
+}
+
+function doRoll(actionText, difficulty) {
+  if (GAME.streaming) return;
+
+  const diffLabels = { hard: '困难', medium: '普通', easy: '简单' };
+  const roll = Math.floor(Math.random() * 100) + 1;
+  const threshold = difficulty.threshold;
+  const isCrit  = roll >= 95;
+  const isSuccess = roll >= threshold;
+
+  $('roll-action').textContent = actionText;
+  $('roll-difficulty').textContent = `难度：${diffLabels[difficulty.level]}（成功线 ${threshold}）`;
+  $('roll-score').textContent = '…';
+  $('roll-bar-fill').style.width = '0%';
+  $('roll-bar-needle').style.left = '0%';
+  $('roll-result-text').textContent = '掷骰中…';
+  $('roll-result-text').className = 'roll-result-text';
+  $('roll-confirm').classList.remove('show');
+  $('roll-overlay').classList.add('open');
+
+  // 动画延迟
+  setTimeout(() => {
+    $('roll-bar-fill').style.width = roll + '%';
+    $('roll-bar-needle').style.left = roll + '%';
+    $('roll-score').textContent = roll;
+
+    if (isCrit) {
+      $('roll-score').className = 'roll-score success';
+      $('roll-result-text').textContent = '✨ 大成功！';
+      $('roll-result-text').className = 'roll-result-text crit';
+    } else if (isSuccess) {
+      $('roll-score').className = 'roll-score success';
+      $('roll-result-text').textContent = '✓ 成功';
+      $('roll-result-text').className = 'roll-result-text success';
+    } else {
+      $('roll-score').className = 'roll-score fail';
+      $('roll-result-text').textContent = '✗ 失败';
+      $('roll-result-text').className = 'roll-result-text fail';
+    }
+
+    $('roll-confirm').classList.add('show');
+
+    // 点确认后发给 GM
+    $('roll-confirm').onclick = () => {
+      $('roll-overlay').classList.remove('open');
+      const resultDesc = isCrit ? '大成功' : isSuccess ? '成功' : '失败';
+      const msg = `[回合${GAME.turn}] 玩家行动：${actionText}【判定：${diffLabels[difficulty.level]}，掷出${roll}/${threshold}，${resultDesc}】`;
+      sendToGM(msg);
+    };
+  }, 200);
+}
+
+// ══════════════════════════════════════
+//  任务系统
+// ══════════════════════════════════════
+function updateQuest(name, status, desc, icon) {
+  const existing = GAME.quests.find(q => q.name === name);
+  if (existing) {
+    existing.status = status;
+    existing.desc   = desc || existing.desc;
+    existing.icon   = icon || existing.icon;
+  } else {
+    GAME.quests.push({ id: Date.now(), name, status, desc, icon: icon || '📋', turn: GAME.turn });
+  }
+  renderQuestDrawer();
+}
+
+function renderQuestDrawer() {
+  const filter = GAME.questFilter;
+  const filtered = filter === 'all'
+    ? GAME.quests
+    : GAME.quests.filter(q => q.status === filter ||
+        (filter === 'active' && q.status === 'active'));
+
+  $('quest-count').textContent = `${GAME.quests.length} 个任务`;
+
+  const list = $('quest-list');
+  if (!filtered.length) {
+    list.innerHTML = `<div class="quest-empty">${filter === 'active' ? '暂无进行中的任务' : '暂无记录'}</div>`;
+    return;
+  }
+
+  const statusMap = {
+    active: { cls: 'active-quest',  badge: 'status-active',  label: '进行中', icon: '⚔️' },
+    done:   { cls: 'done-quest',    badge: 'status-done',    label: '已完成', icon: '✅' },
+    failed: { cls: 'failed-quest',  badge: 'status-failed',  label: '已失败', icon: '❌' },
+  };
+
+  list.innerHTML = filtered.map(q => {
+    const s = statusMap[q.status] || statusMap.active;
+    return `<div class="quest-item ${s.cls}">
+      <div class="quest-item-header">
+        <span class="quest-item-icon">${escapeHtml(q.icon)}</span>
+        <span class="quest-item-name">${escapeHtml(q.name)}</span>
+        <span class="quest-item-status ${s.badge}">${s.label}</span>
+      </div>
+      ${q.desc ? `<div class="quest-item-desc">${escapeHtml(q.desc)}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+$('btn-show-quest').addEventListener('click', () => {
+  renderQuestDrawer();
+  $('quest-drawer').classList.add('open');
+  $('quest-backdrop').classList.add('open');
+});
+$('quest-backdrop').addEventListener('click', () => {
+  $('quest-drawer').classList.remove('open');
+  $('quest-backdrop').classList.remove('open');
+});
+
+// 任务标签切换
+$('quest-drawer').addEventListener('click', e => {
+  const tab = e.target.closest('.quest-tab');
+  if (!tab) return;
+  $('quest-drawer').querySelectorAll('.quest-tab').forEach(t => t.classList.remove('active'));
+  tab.classList.add('active');
+  GAME.questFilter = tab.dataset.filter;
+  renderQuestDrawer();
+});
+
+function renderStatusBar() {
+  const bar = $('status-bar');
+  const keys = Object.keys(GAME.stats);
+  if (!keys.length) { bar.classList.remove('has-stats'); return; }
+
+  bar.classList.add('has-stats');
+  bar.innerHTML = keys.map(k => {
+    const val = GAME.stats[k];
+    // HP 类显示进度条
+    if (k === 'HP' || k === '血量' || k === '生命') {
+      const pct = Math.max(0, Math.min(100, val));
+      return `<div class="stat-item">
+        <span class="stat-label">${k}</span>
+        <div class="stat-bar-wrap"><div class="stat-bar-fill" style="width:${pct}%"></div></div>
+        <span class="stat-value" id="sv-${k}">${val}</span>
+      </div>`;
+    }
+    return `<div class="stat-item">
+      <span class="stat-label">${k}</span>
+      <span class="stat-value" id="sv-${k}">${val}</span>
+    </div>`;
+  }).join('');
+
+  // 闪烁动画
+  keys.forEach(k => {
+    const el = document.getElementById(`sv-${k}`);
+    if (el) { el.classList.add('changed'); setTimeout(() => el.classList.remove('changed'), 1200); }
+  });
+}
+
+// ══════════════════════════════════════
+//  Author's Note
+// ══════════════════════════════════════
+$('btn-show-an').addEventListener('click', () => {
+  $('an-text').value = GAME.authorNote;
+  $('an-position').value = GAME.anPosition;
+  $('an-panel').classList.add('open');
+  $('an-backdrop').classList.add('open');
+});
+$('an-backdrop').addEventListener('click', () => {
+  $('an-panel').classList.remove('open');
+  $('an-backdrop').classList.remove('open');
+});
+$('btn-an-save').addEventListener('click', () => {
+  GAME.authorNote = $('an-text').value.trim();
+  GAME.anPosition = $('an-position').value;
+  $('an-panel').classList.remove('open');
+  $('an-backdrop').classList.remove('open');
+  // 更新指示灯
+  $('an-indicator').classList.toggle('active', !!GAME.authorNote);
+  showErr(GAME.authorNote ? '✓ 作者注记已启用' : '✓ 作者注记已清除', 1500);
+});
+
+// ══════════════════════════════════════
+//  Persona
+// ══════════════════════════════════════
+$('btn-persona-save').addEventListener('click', () => {
+  GAME.persona.name       = $('persona-name').value.trim();
+  GAME.persona.background = $('persona-bg').value.trim();
+  showErr('✓ 身份设定已保存', 1500);
+});
+
+// 读档时恢复 Persona 输入框
+function restorePersonaUI() {
+  $('persona-name').value = GAME.persona.name || '';
+  $('persona-bg').value   = GAME.persona.background || '';
+  $('an-indicator').classList.toggle('active', !!GAME.authorNote);
+  // 恢复判定配置
+  $('roll-enabled').checked = GAME.rollEnabled !== false;
+  $('roll-hard-words').value   = (GAME.rollCustomKeywords?.hard   || []).join(',');
+  $('roll-medium-words').value = (GAME.rollCustomKeywords?.medium || []).join(',');
+  $('roll-easy-words').value   = (GAME.rollCustomKeywords?.easy   || []).join(',');
+}
+
+// 判定配置保存
+$('btn-roll-save').addEventListener('click', () => {
+  GAME.rollEnabled = $('roll-enabled').checked;
+  GAME.rollCustomKeywords = {
+    hard:   $('roll-hard-words').value.split(',').map(s=>s.trim()).filter(Boolean),
+    medium: $('roll-medium-words').value.split(',').map(s=>s.trim()).filter(Boolean),
+    easy:   $('roll-easy-words').value.split(',').map(s=>s.trim()).filter(Boolean),
+  };
+  showErr('✓ 判定配置已保存', 1500);
+});
+
+// ══════════════════════════════════════
+//  导出功能
+// ══════════════════════════════════════
+$('btn-export-chat').addEventListener('click', () => {
+  $('export-drawer').classList.add('open');
+  $('export-backdrop').classList.add('open');
+});
+$('export-backdrop').addEventListener('click', () => {
+  $('export-drawer').classList.remove('open');
+  $('export-backdrop').classList.remove('open');
+});
+
+function buildChatText(fmt) {
+  const name = CARD?.name || '故事引擎';
+  const lines = [];
+
+  if (fmt === 'md') {
+    lines.push(`# ${name} · 对话记录`);
+    lines.push(`\n> 导出时间：${new Date().toLocaleString('zh-CN')}`);
+    lines.push(`> 回合数：${GAME.turn}\n`);
+    if (GAME.summary) {
+      lines.push(`## 剧情摘要\n\n${GAME.summary}\n`);
+    }
+    lines.push(`## 对话历史\n`);
+    GAME.history.forEach(m => {
+      const role = m.role === 'user' ? '**玩家**' : `**${name}（GM）**`;
+      const content = cleanDisplayText(m.content).replace(/<br>/g, '\n').replace(/<[^>]+>/g, '');
+      lines.push(`${role}\n\n${content}\n`);
+      lines.push('---\n');
+    });
+  } else {
+    lines.push(`${name} · 对话记录`);
+    lines.push(`导出时间：${new Date().toLocaleString('zh-CN')}`);
+    lines.push(`回合数：${GAME.turn}`);
+    lines.push('='.repeat(40));
+    if (GAME.summary) {
+      lines.push(`\n【剧情摘要】\n${GAME.summary}\n`);
+      lines.push('='.repeat(40));
+    }
+    GAME.history.forEach(m => {
+      const role = m.role === 'user' ? '玩家' : `${name}（GM）`;
+      const content = cleanDisplayText(m.content).replace(/<br>/g, '\n').replace(/<[^>]+>/g, '');
+      lines.push(`\n【${role}】\n${content}`);
+    });
+  }
+  return lines.join('\n');
+}
+
+function downloadText(content, filename, mime) {
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+
+$('btn-export-md').addEventListener('click', () => {
+  const name = CARD?.name || '对话记录';
+  downloadText(buildChatText('md'), `${name}.md`, 'text/markdown;charset=utf-8');
+  $('export-drawer').classList.remove('open');
+  $('export-backdrop').classList.remove('open');
+});
+
+$('btn-export-txt').addEventListener('click', () => {
+  const name = CARD?.name || '对话记录';
+  downloadText(buildChatText('txt'), `${name}.txt`, 'text/plain;charset=utf-8');
+  $('export-drawer').classList.remove('open');
+  $('export-backdrop').classList.remove('open');
+});
+
+$('btn-export-json-chat').addEventListener('click', () => {
+  if (!CARD) { showErr('没有进行中的游戏'); return; }
+  const name = CARD?.name || '存档';
+  const data = {
+    cfg: { ...CFG, apiKey: '（已隐藏）' },
+    card: CARD,
+    game: {
+      turn: GAME.turn, history: GAME.history,
+      summary: GAME.summary, summaryLog: GAME.summaryLog,
+      stats: GAME.stats, locations: GAME.locations,
+      currentLocation: GAME.currentLocation, quests: GAME.quests,
+      authorNote: GAME.authorNote, persona: GAME.persona
+    },
+    savedAt: Date.now(), label: `${name} · 回合${GAME.turn}`
+  };
+  downloadText(JSON.stringify(data, null, 2), `${name}-存档.json`, 'application/json');
+  $('export-drawer').classList.remove('open');
+  $('export-backdrop').classList.remove('open');
+});
+
+// ══════════════════════════════════════
+//  地图 / 位置系统
+// ══════════════════════════════════════
+function updateLocation(name, desc, icon) {
+  GAME.currentLocation = name;
+  const existing = GAME.locations.find(l => l.name === name);
+  if (existing) {
+    existing.desc = desc || existing.desc;
+    existing.visits++;
+    existing.lastTurn = GAME.turn;
+  } else {
+    GAME.locations.push({ name, desc, icon: icon || '📍', visits: 1, lastTurn: GAME.turn });
+  }
+  renderMapDrawer();
+}
+
+function renderMapDrawer() {
+  const locs = GAME.locations;
+  $('map-visit-count').textContent = `${locs.length} 个地点已探索`;
+
+  const currentLoc = locs.find(l => l.name === GAME.currentLocation);
+  if (currentLoc) {
+    $('map-current-box').style.display = 'block';
+    $('map-current-name').textContent = `${currentLoc.icon} ${currentLoc.name}`;
+    $('map-current-desc').textContent = currentLoc.desc || '—';
+  } else {
+    $('map-current-box').style.display = 'none';
+  }
+
+  const container = $('map-locations');
+  if (!locs.length) {
+    container.innerHTML = '<div class="map-empty">尚未探索任何地点</div>';
+    return;
+  }
+  // 按最近访问排序
+  const sorted = [...locs].sort((a, b) => b.lastTurn - a.lastTurn);
+  container.innerHTML = sorted.map(loc => `
+    <div class="map-loc-item ${loc.name === GAME.currentLocation ? 'current-loc' : ''}">
+      <div class="map-loc-icon">${loc.icon}</div>
+      <div class="map-loc-info">
+        <div class="map-loc-name">${loc.name}${loc.name === GAME.currentLocation ? ' ◀' : ''}</div>
+        ${loc.desc ? `<div class="map-loc-desc">${loc.desc}</div>` : ''}
+        <div class="map-loc-visits">第 ${loc.lastTurn} 回合 · 共 ${loc.visits} 次到访</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+$('btn-show-map').addEventListener('click', () => {
+  renderMapDrawer();
+  $('map-drawer').classList.add('open');
+  $('map-backdrop').classList.add('open');
+});
+$('map-backdrop').addEventListener('click', () => {
+  $('map-drawer').classList.remove('open');
+  $('map-backdrop').classList.remove('open');
+});
+
+// ══════════════════════════════════════
+//  冒险日志
+// ══════════════════════════════════════
+function renderJournalPanel() {
+  const list = $('journal-list');
+  if (!GAME.summaryLog.length) {
+    list.innerHTML = '<div class="journal-empty">尚无日志记录\n每 8 回合自动生成</div>';
+    return;
+  }
+  // 最新的在上面
+  list.innerHTML = [...GAME.summaryLog].reverse().map(entry => `
+    <div class="journal-entry">
+      <div class="journal-turn">第 ${entry.turn} 回合</div>
+      <div class="journal-text">${entry.text}</div>
+    </div>
+  `).join('');
+}
+
+$('btn-show-journal').addEventListener('click', () => {
+  renderJournalPanel();
+  $('journal-panel').classList.add('open');
+  $('journal-backdrop').classList.add('open');
+});
+$('journal-backdrop').addEventListener('click', () => {
+  $('journal-panel').classList.remove('open');
+  $('journal-backdrop').classList.remove('open');
+});
+
+// ══════════════════════════════════════
+//  对话搜索
+// ══════════════════════════════════════
+$('btn-show-search').addEventListener('click', () => {
+  $('search-overlay').classList.add('open');
+  $('search-input').value = '';
+  $('search-results').innerHTML = '<div class="search-empty">输入关键词开始搜索</div>';
+  setTimeout(() => $('search-input').focus(), 100);
+});
+
+$('btn-search-close').addEventListener('click', () => {
+  $('search-overlay').classList.remove('open');
+});
+
+$('search-overlay').addEventListener('click', e => {
+  if (e.target === $('search-overlay')) $('search-overlay').classList.remove('open');
+});
+
+$('search-input').addEventListener('input', () => {
+  const q = $('search-input').value.trim();
+  const results = $('search-results');
+  if (!q) { results.innerHTML = '<div class="search-empty">输入关键词开始搜索</div>'; return; }
+
+  // 搜索 history + summaryLog
+  const hits = [];
+  GAME.history.forEach((m, i) => {
+    if (m.content.includes(q)) {
+      hits.push({ role: m.role, text: m.content, index: i });
+    }
+  });
+
+  if (!hits.length) {
+    results.innerHTML = '<div class="search-empty">未找到相关内容</div>';
+    return;
+  }
+
+  results.innerHTML = hits.slice(0, 20).map(h => {
+    const roleLabel = h.role === 'user' ? '玩家' : 'GM';
+    // 高亮关键词
+    const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const highlighted = h.text.slice(0, 200)
+      .replace(new RegExp(escaped, 'gi'), m => `<mark>${m}</mark>`);
+    return `<div class="search-result-item">
+      <div class="search-result-role">${roleLabel}</div>
+      <div class="search-result-text">${highlighted}${h.text.length > 200 ? '…' : ''}</div>
+    </div>`;
+  }).join('');
+});
+
+// ══════════════════════════════════════
+//  主题切换
+// ══════════════════════════════════════
+function applyTheme(dark) {
+  document.body.classList.toggle('dark-theme', dark);
+  $('btn-theme').textContent = dark ? '☀️' : '🌙';
+  localStorage.setItem(DARK_KEY, dark ? '1' : '0');
+}
+
+$('btn-theme').addEventListener('click', () => {
+  applyTheme(!document.body.classList.contains('dark-theme'));
+});
+
+// 启动时读取主题
+if (localStorage.getItem(DARK_KEY) === '1') applyTheme(true);
+
+// 启动时恢复 API 配置
+(function restoreCFG() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('tavern_cfg'));
+    if (!saved) return;
+    if (saved.baseUrl) $('cfg-base-url').value = saved.baseUrl;
+    if (saved.apiKey)  $('cfg-api-key').value  = saved.apiKey;
+    if (saved.baseUrl && saved.apiKey) {
+      // 自动触发拉取
+      const hint = $('fetch-hint');
+      hint.style.color = 'var(--faded2)';
+      hint.textContent = '正在恢复上次配置…';
+      fetch(`${saved.baseUrl}/models`, {
+        headers: { 'Authorization': `Bearer ${saved.apiKey}` }
+      }).then(r => r.json()).then(data => {
+        const list = Array.isArray(data) ? data : (data.data || []);
+        if (!list.length) throw new Error();
+        list.sort((a, b) => (a.id || '').localeCompare(b.id || ''));
+        const sel = $('cfg-model');
+        sel.innerHTML = list.map(m => `<option value="${m.id}">${m.id}</option>`).join('');
+        // 恢复上次选的模型
+        if (saved.model) sel.value = saved.model;
+        CFG.baseUrl = saved.baseUrl;
+        CFG.apiKey  = saved.apiKey;
+        CFG.model   = sel.value;
+        sel.addEventListener('change', () => {
+          CFG.model = sel.value;
+          const c = JSON.parse(localStorage.getItem('tavern_cfg') || '{}');
+          c.model = sel.value;
+          localStorage.setItem('tavern_cfg', JSON.stringify(c));
+        });
+        hint.style.color = 'var(--gold)';
+        hint.textContent = `✓ ${list.length} 个模型（已恢复）`;
+        $('btn-go-gen').disabled = false;
+      }).catch(() => {
+        hint.style.color = 'var(--faded2)';
+        hint.textContent = '上次配置已填入，请手动拉取模型';
+      });
+    }
+  } catch(e) {}
+})();
+
+// ══════════════════════════════════════
+//  角色卡库
+// ══════════════════════════════════════
+const LIBRARY_KEY = 'tavern_card_library';
+
+function getLibrary() {
+  try { return JSON.parse(localStorage.getItem(LIBRARY_KEY)) || []; }
+  catch { return []; }
+}
+
+function saveLibrary(lib) {
+  localStorage.setItem(LIBRARY_KEY, JSON.stringify(lib));
+}
+
+function addToLibrary(card) {
+  const lib = getLibrary();
+  const existing = lib.findIndex(c => c.name === card.name);
+  if (existing >= 0) {
+    if (!confirm(`卡库中已有「${card.name}」，是否覆盖？`)) return;
+    lib[existing] = { ...card, savedAt: Date.now() };
+  } else {
+    lib.push({ ...card, savedAt: Date.now() });
+  }
+  saveLibrary(lib);
+  showErr(`✓ 已保存到卡库：${card.name}`, 2000);
+  renderLibrary();
+}
+
+function renderLibrary() {
+  const lib = getLibrary();
+  const list = $('lib-list');
+  if (!lib.length) {
+    list.innerHTML = `<div class="lib-empty">卡库为空<br>导入角色卡后会自动保存<br>或点击右上角 + 手动导入</div>`;
+    return;
+  }
+  list.innerHTML = lib.map((card, i) => `
+    <div class="lib-card-item">
+      <div class="lib-card-header">
+        <div class="lib-card-name">${card.name}</div>
+        <div class="lib-card-genre">${card.genre || '未知风格'}</div>
+      </div>
+      ${card.description ? `<div class="lib-card-desc">${card.description.slice(0, 80)}…</div>` : ''}
+      <div class="lib-card-actions">
+        <button class="btn-lib-play" data-index="${i}">▶ 开始游戏</button>
+        <button class="btn-lib-del" data-index="${i}">删除</button>
+      </div>
+    </div>
+  `).join('');
+
+  list.querySelectorAll('.btn-lib-play').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const card = getLibrary()[parseInt(btn.dataset.index)];
+      if (!card) return;
+      CFG.baseUrl = $('cfg-base-url').value.trim().replace(/\/$/, '');
+      CFG.apiKey  = $('cfg-api-key').value.trim();
+      CFG.model   = $('cfg-model').value;
+      if (!CFG.baseUrl || !CFG.model) { showErr('请先配置 API 并拉取模型'); return; }
+      $('card-lib-panel').classList.remove('open');
+      loadCard(card);
+      startGame();
+    });
+  });
+
+  list.querySelectorAll('.btn-lib-del').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const lib = getLibrary();
+      const card = lib[parseInt(btn.dataset.index)];
+      if (!confirm(`删除「${card.name}」？`)) return;
+      lib.splice(parseInt(btn.dataset.index), 1);
+      saveLibrary(lib);
+      renderLibrary();
+    });
+  });
+}
+
+$('btn-open-library').addEventListener('click', () => {
+  renderLibrary();
+  $('card-lib-panel').classList.add('open');
+});
+$('btn-lib-back').addEventListener('click', () => {
+  $('card-lib-panel').classList.remove('open');
+});
+
+// 卡库导入按钮
+$('btn-lib-import').addEventListener('click', () => $('file-lib-import').click());
+$('file-lib-import').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  e.target.value = '';
+  try {
+    let json;
+    if (file.name.endsWith('.png') || file.type === 'image/png') {
+      json = await extractCardFromPNG(file);
+    } else {
+      json = JSON.parse(await file.text());
+    }
+    const card = normalizeCard(json);
+    addToLibrary(card);
+  } catch(err) { showErr('导入失败：' + err.message); }
+});
+
+// 导入角色卡时自动加入卡库
+// （在原有 file-import 处理完后调用）
+
+// ══════════════════════════════════════
+//  历史消息编辑
+// ══════════════════════════════════════
+let editTarget = null; // { historyIndex, msgEl }
+
+function openMsgEdit(historyIndex, msgEl) {
+  const msg = GAME.history[historyIndex];
+  if (!msg) return;
+  editTarget = { historyIndex, msgEl };
+  const role = msg.role === 'user' ? '玩家消息' : 'GM 消息';
+  $('msg-edit-title').textContent = `编辑 ${role}（回合相关）`;
+  $('msg-edit-textarea').value = cleanDisplayText(msg.content)
+    .replace(/<br>/g, '\n').replace(/<[^>]+>/g, '');
+  $('msg-edit-overlay').classList.add('open');
+  setTimeout(() => $('msg-edit-textarea').focus(), 100);
+}
+
+$('btn-edit-confirm').addEventListener('click', () => {
+  if (!editTarget) return;
+  const newText = $('msg-edit-textarea').value.trim();
+  if (!newText) return;
+  const { historyIndex, msgEl } = editTarget;
+
+  // 更新历史
+  GAME.history[historyIndex].content = newText;
+
+  // 更新 UI
+  const bubble = msgEl.querySelector('.bubble');
+  if (bubble) bubble.innerHTML = formatText(newText);
+
+  $('msg-edit-overlay').classList.remove('open');
+  editTarget = null;
+  autoSave();
+  showErr('✓ 已保存', 1200);
+});
+
+$('btn-edit-cancel').addEventListener('click', () => {
+  $('msg-edit-overlay').classList.remove('open');
+  editTarget = null;
+});
+
+$('btn-edit-delete').addEventListener('click', () => {
+  if (!editTarget) return;
+  const { historyIndex, msgEl } = editTarget;
+  if (!confirm('删除这条消息？')) return;
+
+  GAME.history.splice(historyIndex, 1);
+  // 重新标记所有消息的 historyIndex
+  rebindMsgActions();
+  msgEl.closest('.msg')?.remove();
+
+  $('msg-edit-overlay').classList.remove('open');
+  editTarget = null;
+  autoSave();
+});
+
+$('msg-edit-overlay').addEventListener('click', e => {
+  if (e.target === $('msg-edit-overlay')) {
+    $('msg-edit-overlay').classList.remove('open');
+    editTarget = null;
+  }
+});
+
+// 重新给所有消息绑定正确的 historyIndex
+function rebindMsgActions() {
+  const area = $('dialogue-area');
+  const gmMsgs = [...area.querySelectorAll('.msg-gm')];
+  const playerMsgs = [...area.querySelectorAll('.msg-player')];
+
+  let gi = 0, pi = 0;
+  GAME.history.forEach((m, i) => {
+    if (m.role === 'assistant' && gmMsgs[gi]) {
+      gmMsgs[gi].dataset.historyIndex = i;
+      gi++;
+    } else if (m.role === 'user' && playerMsgs[pi]) {
+      playerMsgs[pi].dataset.historyIndex = i;
+      pi++;
+    }
+  });
+}
+async function triggerSummary() {
+  if (GAME.history.length < GAME.KEEP_RECENT + 2) return;
+
+  // 取出要压缩的早期对话（留下最近 KEEP_RECENT 条）
+  const toCompress = GAME.history.slice(0, -GAME.KEEP_RECENT);
+  const recent     = GAME.history.slice(-GAME.KEEP_RECENT);
+
+  const historyText = toCompress.map(m =>
+    `${m.role === 'user' ? '玩家' : 'GM'}：${m.content}`
+  ).join('\n');
+
+  const prevSummary = GAME.summary ? `之前的摘要：${GAME.summary}\n\n` : '';
+
+  try {
+    const result = await callAI([{
+      role: 'user',
+      content: `${prevSummary}以下是最新的剧情对话，请用2-4句话概括目前发生的关键事件，保留重要细节（人物、地点、已解决/未解决的事项）：\n\n${historyText}`
+    }], 300, false);
+
+    GAME.summary = result.trim();
+    GAME.summaryLog.push({ turn: GAME.turn, text: GAME.summary });
+    GAME.history = recent; // 替换为只保留近期
+
+    // 在对话区显示摘要卡片
+    addSummaryCard(GAME.summary);
+
+    // 静默存档
+    autoSave();
+
+  } catch(e) {
+    // 摘要失败不影响游戏，静默处理
+    console.warn('摘要生成失败：', e.message);
+  }
+}
+
+function addSummaryCard(text) {
+  const area = $('dialogue-area');
+  const div = document.createElement('div');
+  div.className = 'msg msg-summary';
+  div.innerHTML = `<div class="bubble">${text}</div>`;
+  area.appendChild(div);
+  area.scrollTop = area.scrollHeight;
+}
+
+// ══════════════════════════════════════
+//  重新生成按钮
+// ══════════════════════════════════════
+function addMsgActions(msgEl, fullText) {
+  msgEl.querySelector('.msg-actions')?.remove();
+  const historyIndex = GAME.history.length - 1; // 当前最新一条
+  msgEl.dataset.historyIndex = historyIndex;
+
+  const div = document.createElement('div');
+  div.className = 'msg-actions';
+  div.innerHTML = `
+    <button class="btn-msg-action" data-action="regen">↺ 重新生成</button>
+    <button class="btn-msg-action msg-edit-btn" data-action="edit">✏ 编辑</button>
+  `;
+  div.addEventListener('click', e => {
+    const btn = e.target.closest('.btn-msg-action');
+    if (!btn) return;
+    if (btn.dataset.action === 'regen') sendToGM('', false, true);
+    if (btn.dataset.action === 'edit') {
+      const idx = parseInt(msgEl.dataset.historyIndex);
+      openMsgEdit(idx, msgEl);
+    }
+  });
+  msgEl.appendChild(div);
+}
+
+// 玩家消息也加编辑按钮
+function addPlayerMsgActions(msgEl, historyIndex) {
+  msgEl.dataset.historyIndex = historyIndex;
+  const div = document.createElement('div');
+  div.className = 'msg-actions';
+  div.style.justifyContent = 'flex-end';
+  div.innerHTML = `<button class="btn-msg-action msg-edit-btn" data-action="edit">✏ 编辑</button>`;
+  div.addEventListener('click', e => {
+    const btn = e.target.closest('.btn-msg-action');
+    if (btn?.dataset.action === 'edit') openMsgEdit(parseInt(msgEl.dataset.historyIndex), msgEl);
+  });
+  msgEl.appendChild(div);
+}
+
+// ══════════════════════════════════════
+//  存档系统
+// ══════════════════════════════════════
+const AUTO_SAVE_KEY = '__tavern_autosave__';
+
+function autoSave() {
+  if (!CARD) return;
+  try {
+    const data = {
+      cfg: { ...CFG },
+      card: CARD,
+      game: {
+        turn: GAME.turn,
+        history: GAME.history,
+        summary: GAME.summary,
+        summaryLog: GAME.summaryLog,
+        stats: GAME.stats,
+        authorNote: GAME.authorNote,
+        anPosition: GAME.anPosition,
+        persona: GAME.persona,
+        locations: GAME.locations,
+        currentLocation: GAME.currentLocation,
+        quests: GAME.quests,
+        rollEnabled: GAME.rollEnabled,
+        rollCustomKeywords: GAME.rollCustomKeywords,
+        structuredMemory: GAME.structuredMemory
+      },
+      savedAt: Date.now(),
+      label: `${CARD.name} · 回合${GAME.turn}`
+    };
+    localStorage.setItem(AUTO_SAVE_KEY, JSON.stringify(data));
+  } catch(e) {}
+}
+
+function saveSlot(slotKey) {
+  if (!CARD) return;
+  const data = {
+    cfg: { ...CFG },
+    card: CARD,
+    game: {
+      turn: GAME.turn,
+      history: GAME.history,
+      summary: GAME.summary,
+      summaryLog: GAME.summaryLog,
+      stats: GAME.stats,
+      authorNote: GAME.authorNote,
+      anPosition: GAME.anPosition,
+      persona: GAME.persona,
+      locations: GAME.locations,
+      currentLocation: GAME.currentLocation,
+      quests: GAME.quests,
+      rollEnabled: GAME.rollEnabled,
+      rollCustomKeywords: GAME.rollCustomKeywords,
+      structuredMemory: GAME.structuredMemory
+    },
+    savedAt: Date.now(),
+    label: `${CARD.name} · 回合${GAME.turn}`
+  };
+  localStorage.setItem(slotKey, JSON.stringify(data));
+  showErr('✓ 存档成功', 1500);
+  renderSaveList();
+}
+
+function loadSlot(data) {
+  CFG.baseUrl = data.cfg.baseUrl || CFG.baseUrl;
+  CFG.apiKey  = data.cfg.apiKey  || CFG.apiKey;
+  CFG.model   = data.cfg.model   || CFG.model;
+
+  CARD = data.card;
+  GAME.turn        = data.game.turn || 1;
+  GAME.history     = data.game.history || [];
+  GAME.summary     = data.game.summary || '';
+  GAME.summaryLog  = data.game.summaryLog || [];
+  GAME.stats          = data.game.stats || {};
+  GAME.authorNote     = data.game.authorNote || '';
+  GAME.anPosition     = data.game.anPosition || 'after_history';
+  GAME.persona        = data.game.persona || { name: '', background: '' };
+  GAME.locations      = data.game.locations || [];
+  GAME.currentLocation = data.game.currentLocation || '';
+  GAME.quests          = data.game.quests || [];
+  GAME.questFilter     = 'active';
+  GAME.rollEnabled     = data.game.rollEnabled !== false;
+  GAME.rollCustomKeywords = data.game.rollCustomKeywords || { hard: [], medium: [], easy: [] };
+  GAME.structuredMemory = data.game.structuredMemory !== false;
+  GAME.streaming       = false;
+  GAME.alive           = true;
+
+  $('hud-char-name').textContent = CARD.name;
+  $('hud-turn').textContent = GAME.turn;
+  $('drawer-name').textContent = CARD.name;
+  $('drawer-genre').textContent = CARD.genre || '';
+  $('drawer-desc').textContent = CARD.description;
+  $('drawer-scenario').textContent = CARD.scenario || '—';
+
+  renderLorePanel();
+  renderChips();
+  renderStatusBar();
+  renderMapDrawer();
+  renderJournalPanel();
+  renderQuestDrawer();
+  restorePersonaUI();
+
+  $('dialogue-area').innerHTML = '';
+  if (GAME.summary) addSummaryCard('【读档摘要】' + GAME.summary);
+  GAME.history.forEach((m, i) => {
+    if (m.role === 'assistant') {
+      const div = addMessage('gm', cleanDisplayText(applyRegex(m.content)));
+      div.dataset.historyIndex = i;
+      addMsgActions(div, m.content);
+    } else if (m.role === 'user' && !m.content.startsWith('游戏开始')) {
+      const txt = m.content.replace(/^\[回合\d+\] 玩家行动：/, '').replace(/^\[回合\d+\] 玩家选择：/, '');
+      const div = addMessage('player', txt);
+      addPlayerMsgActions(div, i);
+    }
+  });
+
+  closeSaveDrawer();
+  showScreen('game');
+  $('player-input').disabled = false;
+  $('btn-send').disabled = false;
+}
+
+function getAllSaves() {
+  const saves = [];
+  // 自动存档
+  try {
+    const auto = localStorage.getItem(AUTO_SAVE_KEY);
+    if (auto) saves.push({ key: AUTO_SAVE_KEY, data: JSON.parse(auto), isAuto: true });
+  } catch {}
+  // 手动存档槽
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key?.startsWith(SAVE_PREFIX)) {
+      try {
+        saves.push({ key, data: JSON.parse(localStorage.getItem(key)), isAuto: false });
+      } catch {}
+    }
+  }
+  saves.sort((a, b) => (b.data.savedAt || 0) - (a.data.savedAt || 0));
+  return saves;
+}
+
+function renderSaveList() {
+  const list = $('save-list');
+  const saves = getAllSaves();
+  if (!saves.length) {
+    list.innerHTML = '<div class="save-empty">暂无存档</div>';
+    return;
+  }
+  list.innerHTML = saves.map(s => {
+    const d = new Date(s.data.savedAt);
+    const timeStr = `${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`;
+    const tag = s.isAuto ? '自动' : '手动';
+    return `
+      <div class="save-slot">
+        <div class="save-slot-info">
+          <div class="save-slot-name">${s.data.label || '存档'}</div>
+          <div class="save-slot-meta">${tag} · ${timeStr}</div>
+        </div>
+        <div class="save-slot-actions">
+          <button class="btn-slot btn-slot-load" data-key="${s.key}">读取</button>
+          <button class="btn-slot btn-slot-del" data-key="${s.key}">删除</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  list.querySelectorAll('.btn-slot-load').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const key = btn.dataset.key;
+      try {
+        const data = JSON.parse(localStorage.getItem(key));
+        loadSlot(data);
+      } catch { showErr('读取失败'); }
+    });
+  });
+
+  list.querySelectorAll('.btn-slot-del').forEach(btn => {
+    btn.addEventListener('click', () => {
+      localStorage.removeItem(btn.dataset.key);
+      renderSaveList();
+    });
+  });
+}
+
+let saveDrawerFromHome = false;
+
+function openSaveDrawer(fromHome = false) {
+  saveDrawerFromHome = fromHome;
+  renderSaveList();
+  $('save-drawer').classList.add('open');
+  $('save-backdrop').classList.add('open');
+}
+
+function closeSaveDrawer() {
+  $('save-drawer').classList.remove('open');
+  $('save-backdrop').classList.remove('open');
+}
+
+$('save-backdrop').addEventListener('click', closeSaveDrawer);
+
+$('btn-do-save').addEventListener('click', () => {
+  if (!CARD) { showErr('没有进行中的游戏'); return; }
+  const key = SAVE_PREFIX + Date.now();
+  saveSlot(key);
+});
+
+$('btn-save-game').addEventListener('click', () => openSaveDrawer(false));
+
+// 非流式调用（用于生成角色卡）
+async function callAI(messages, maxTokens = 1500, stream = false) {
+  const resp = await fetch(`${CFG.baseUrl}/chat/completions`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${CFG.apiKey}`
+    },
+    body: JSON.stringify({ model: CFG.model, max_tokens: maxTokens, stream, messages })
+  });
+  if (!resp.ok) {
+    const e = await resp.json().catch(() => ({}));
+    throw new Error(e?.error?.message || `HTTP ${resp.status}`);
+  }
+  const data = await resp.json();
+  return data.choices?.[0]?.message?.content || '';
+}
+
+// ══════════════════════════════════════
+//  UI HELPERS
+// ══════════════════════════════════════
+function addMessage(type, text, speaker = '') {
+  const area = $('dialogue-area');
+  const div = document.createElement('div');
+  div.className = `msg msg-${type}`;
+
+  if (type === 'gm') {
+    div.innerHTML = `<div class="speaker">▎ ${speaker || CARD?.name || 'GM'}</div><div class="bubble">${formatText(text)}</div>`;
+  } else if (type === 'player') {
+    div.innerHTML = `<div class="bubble">${formatText(text)}</div>`;
+  } else if (type === 'system') {
+    div.innerHTML = `<div class="bubble">${text}</div>`;
+  } else if (type === 'lore') {
+    div.innerHTML = `<div class="bubble">📖 ${text}</div>`;
+  }
+
+  area.appendChild(div);
+  area.scrollTop = area.scrollHeight;
+  return div;
+}
+
+function addStreamingMessage() {
+  const area = $('dialogue-area');
+  const div = document.createElement('div');
+  div.className = 'msg msg-gm';
+  div.innerHTML = `<div class="speaker">▎ ${CARD?.name || 'GM'}</div><div class="bubble streaming-bubble"><span class="typing-cursor"></span></div>`;
+  area.appendChild(div);
+  area.scrollTop = area.scrollHeight;
+  return div.querySelector('.streaming-bubble');
+}
+
+function formatText(raw) {
+  // 先转义 HTML 特殊字符防 XSS
+  let text = raw
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+
+  // 代码块 ```lang\n...\n```
+  text = text.replace(/```[\w]*\n?([\s\S]*?)```/g, (_, code) =>
+    `<pre class="md-code"><code>${code.trim()}</code></pre>`);
+
+  // 行内代码 `code`
+  text = text.replace(/`([^`\n]+)`/g, '<code class="md-inline">$1</code>');
+
+  // <inner>内心独白</inner>
+  text = text.replace(/&lt;inner&gt;([\s\S]*?)&lt;\/inner&gt;/g,
+    '<span class="md-inner">$1</span>');
+
+  // 水平分割线
+  text = text.replace(/^---+$/gm, '<hr class="md-hr">');
+
+  // ## 标题（H2）
+  text = text.replace(/^## (.+)$/gm, '<div class="md-h2">$1</div>');
+  // ### 标题（H3）
+  text = text.replace(/^### (.+)$/gm, '<div class="md-h3">$1</div>');
+  // # 标题（H1）
+  text = text.replace(/^# (.+)$/gm, '<div class="md-h1">$1</div>');
+
+  // 无序列表 - item
+  text = text.replace(/^[*\-] (.+)$/gm, '<div class="md-li">· $1</div>');
+
+  // **加粗**
+  text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  // *斜体* 或 _斜体_
+  text = text.replace(/\*([^*\n]+)\*/g, '<em>$1</em>');
+  text = text.replace(/_([^_\n]+)_/g, '<em>$1</em>');
+
+  // 原有：「NPC对话」金色
+  text = text.replace(/「(.+?)」/g,
+    '<span class="md-npc">「$1」</span>');
+  // 原有：【标签】红色
+  text = text.replace(/【(.+?)】/g,
+    '<span class="md-tag">【$1】</span>');
+
+  // 换行（不在 pre 块内的）
+  text = text.replace(/\n/g, '<br>');
+
+  return text;
+}
+
+function renderChips() {
+  const area = $('chips-area');
+  area.innerHTML = '';
+  const actions = CARD?.quick_actions?.length
+    ? CARD.quick_actions
+    : ['观察四周', '与NPC交谈', '检查物品', '尝试离开'];
+  actions.forEach(a => {
+    const btn = document.createElement('button');
+    btn.className = 'chip';
+    btn.textContent = a;
+    btn.addEventListener('click', () => {
+      if (GAME.streaming) return;
+      $('player-input').value = a;
+      sendPlayerAction();
+    });
+    area.appendChild(btn);
+  });
+}
+
+function renderLorePanel() {
+  const list = $('lore-list');
+  if (!CARD?.world_book?.length) {
+    list.innerHTML = '<div class="lore-empty">此世界书为空</div>';
+    return;
+  }
+  list.innerHTML = CARD.world_book.map(e => `
+    <div class="lore-entry">
+      <div class="lore-keys">
+        ${e.constant
+          ? '<span style="color:var(--gold);margin-right:4px">★ 常驻</span>'
+          : e.keywords.join(' · ')}
+      </div>
+      <div class="lore-content">${e.content.slice(0, 120)}${e.content.length > 120 ? '…' : ''}</div>
+    </div>
+  `).join('');
+}
+
+// ══════════════════════════════════════
+//  PLAYER INPUT
+// ══════════════════════════════════════
+function sendPlayerAction() {
+  if (GAME.streaming) return;
+  const text = $('player-input').value.trim();
+  if (!text) return;
+  $('player-input').value = '';
+  $('player-input').style.height = 'auto';
+  addMessage('player', text);
+
+  const needsRoll = checkNeedsRoll(text);
+  if (needsRoll) {
+    doRoll(text, needsRoll);
+  } else {
+    sendToGM(`[回合${GAME.turn}] 玩家行动：${text}`);
+  }
+}
+
+$('btn-send').addEventListener('click', sendPlayerAction);
+$('player-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendPlayerAction(); }
+});
+$('player-input').addEventListener('input', () => {
+  $('player-input').style.height = 'auto';
+  $('player-input').style.height = Math.min($('player-input').scrollHeight, 100) + 'px';
+});
+
+// ══════════════════════════════════════
+//  世界书 & 角色信息面板
+// ══════════════════════════════════════
+$('btn-show-lore').addEventListener('click', () => {
+  $('lore-panel').classList.toggle('open');
+  $('lore-backdrop').classList.toggle('open');
+});
+$('lore-backdrop').addEventListener('click', () => {
+  $('lore-panel').classList.remove('open');
+  $('lore-backdrop').classList.remove('open');
+});
+
+$('btn-show-char').addEventListener('click', () => {
+  $('char-drawer').classList.toggle('open');
+  $('char-backdrop').classList.toggle('open');
+});
+$('char-backdrop').addEventListener('click', () => {
+  $('char-drawer').classList.remove('open');
+  $('char-backdrop').classList.remove('open');
+});
+
+// ══════════════════════════════════════
+//  退出游戏
+// ══════════════════════════════════════
+$('btn-exit-game').addEventListener('click', () => {
+  if (!confirm('退出当前游戏？\n（进度已自动存档，也可手动存档后退出）')) return;
+  ['lore-panel','lore-backdrop','char-drawer','char-backdrop',
+   'save-drawer','save-backdrop','an-panel','an-backdrop',
+   'journal-panel','journal-backdrop','map-drawer','map-backdrop',
+   'quest-drawer','quest-backdrop','search-overlay',
+   'roll-overlay','export-drawer','export-backdrop'].forEach(id => $(id).classList.remove('open'));
+  CARD = null;
+  GAME.history = [];
+  GAME.summary = '';
+  GAME.stats = {};
+  GAME.authorNote = '';
+  GAME.persona = { name: '', background: '' };
+  GAME.locations = [];
+  GAME.currentLocation = '';
+  GAME.quests = [];
+  GAME.rollEnabled = true;
+  GAME.rollCustomKeywords = { hard: [], medium: [], easy: [] };
+  $('an-indicator').classList.remove('active');
+  $('status-bar').innerHTML = '';
+  $('status-bar').classList.remove('has-stats');
+  showScreen('home');
+});
+</script>
+</body>
+</html>
